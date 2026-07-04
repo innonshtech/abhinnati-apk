@@ -1,0 +1,388 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(uuid())
+  email          String?        @unique
+  phone          String         @unique
+  passwordHash   String
+  name           String         @default("")
+  role           String         @default("resident") // 'resident', 'vendor', 'admin'
+  language       String         @default("mr") // 'mr' or 'en'
+  isActive       Boolean        @default(true)
+  profileImage   String?
+
+  // Soft Delete and Audit fields
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  deletedBy      String?
+
+  // Relations
+  vendorProfile  Vendor?
+  deviceTokens   DeviceToken[]
+  refreshTokens  RefreshToken[]
+  notificationPreferences NotificationPreference?
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+}
+
+model Vendor {
+  id                 String     @id @default(uuid())
+  userId             String     @unique
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycStatus          String     @default("pending") // 'pending', 'under_review', 'approved', 'rejected'
+  kycDocsUrl         String     @default("")
+  firstApprovedLogin Boolean    @default(true)
+
+  // Soft Delete and Audit fields
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  deletedBy      String?
+
+  // Additional fields for vendor operations
+  weeklyHours    String?        // JSON string for weekly schedule
+  vacationMode   Boolean        @default(false)
+  vacationStart  DateTime?
+  vacationEnd    DateTime?
+  vacationReason String?
+  blockedDates   String?        // JSON string of dates
+  blockedSlots   String?        // JSON string of slots
+  serviceRadius  String?        @default("5 km")
+  emergencyStatus String?
+  ratingAvg      Float          @default(4.5)
+  reviewsCount   Int            @default(0)
+
+  // Relations
+  bookings      Booking[]
+  business       Business?
+  kycDocuments   KycDocument[]
+
+  @@index([userId])
+  @@index([kycStatus])
+  @@index([deletedAt])
+}
+
+model Business {
+  id             String         @id @default(uuid())
+  vendorId       String         @unique
+  vendor         Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  nameMr         String
+  nameEn         String
+  descriptionMr  String
+  descriptionEn  String
+  logoUrl        String?
+  coverPhotoUrl  String?
+  galleryUrls    String?        // JSON string of photo urls
+  whatsappNumber String?
+  email          String?
+  ratingAvg      Float          @default(4.5)
+  reviewsCount   Int            @default(0)
+  vacationMode   Boolean        @default(false)
+  vacationStart  DateTime?
+  vacationEnd    DateTime?
+  vacationReason String?
+  blockedDates   String?        // JSON string of dates
+  blockedSlots   String?        // JSON string of slots
+  serviceRadius  String?        @default("5 km")
+  emergencyStatus String?
+
+  // Soft Delete and Audit fields
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  deletedBy      String?
+
+  // Relations
+  reviews       Review[]
+  services       VendorService[]
+  businessHours  BusinessHours[]
+  locations      Location[]
+
+  @@index([vendorId])
+  @@index([deletedAt])
+}
+
+model Category {
+  id           String         @id @default(uuid())
+  slug         String         @unique // e.g. 'plumbing'
+  nameMr       String
+  nameEn       String
+  iconName     String
+  isActive     Boolean        @default(true)
+  displayOrder Int            @default(0)
+
+  // Soft Delete and Audit fields
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+  createdBy    String?
+  updatedBy    String?
+  deletedBy    String?
+
+  // Relations
+  subCategories SubCategory[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model SubCategory {
+  id           String         @id @default(uuid())
+  categoryId   String
+  category     Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  slug         String         @unique
+  nameMr       String
+  nameEn       String
+  isActive     Boolean        @default(true)
+  displayOrder Int            @default(0)
+
+  // Soft Delete and Audit fields
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+  createdBy    String?
+  updatedBy    String?
+  deletedBy    String?
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model VendorService {
+  id            String         @id @default(uuid())
+  businessId    String
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  nameMr        String
+  nameEn        String
+  price         Float
+  durationMins  Int
+  descriptionMr String
+  descriptionEn String
+  isActive      Boolean        @default(true)
+
+  // Soft Delete and Audit fields
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  createdBy     String?
+  updatedBy     String?
+  deletedBy     String?
+
+  @@index([businessId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model BusinessHours {
+  id           String         @id @default(uuid())
+  businessId   String
+  business     Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  dayOfWeek    Int            // 0 (Sunday) to 6 (Saturday)
+  openTime     String?        // format "HH:MM"
+  closeTime    String?        // format "HH:MM"
+  isClosed     Boolean        @default(false)
+
+  // Soft Delete and Audit fields
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+  createdBy    String?
+  updatedBy    String?
+  deletedBy    String?
+
+  @@index([businessId])
+  @@index([deletedAt])
+}
+
+model Location {
+  id               String     @id @default(uuid())
+  businessId       String
+  business         Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  latitude         Float
+  longitude        Float
+  formattedAddress String
+  city             String
+  state            String
+  pincode          String
+  area             String
+
+  // Soft Delete and Audit fields
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+  createdBy        String?
+  updatedBy        String?
+  deletedBy        String?
+
+  @@index([businessId])
+  @@index([latitude, longitude])
+  @@index([deletedAt])
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String   // 'ios', 'android', 'web'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model NotificationPreference {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookingNotifications   Boolean  @default(true)
+  communityNotifications Boolean  @default(true)
+  spotlightNotifications Boolean  @default(true)
+  systemNotifications    Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  titleMr    String
+  titleEn    String
+  messageMr  String
+  messageEn  String
+  type       String   // 'booking', 'community', 'spotlight', 'system'
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   // e.g. 'LOGIN', 'CREATE_SERVICE', 'UPDATE_BUSINESS'
+  entityName String   // e.g. 'User', 'Business', 'VendorService'
+  entityId   String?
+  oldValues  String?  // JSON string
+  newValues  String?  // JSON string
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model KycDocument {
+  id              String    @id @default(uuid())
+  vendorId        String
+  vendor          Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  documentType    String    // 'aadhaar', 'pan', 'gst', 'shop_license', 'electricity_bill', 'trade_license'
+  documentUrl     String
+  status          String    @default("pending") // 'pending', 'approved', 'rejected', 'resubmission'
+  rejectionReason String?
+  
+  // Soft Delete and Audit fields
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  createdBy       String?
+  updatedBy       String?
+  deletedBy       String?
+
+  @@index([vendorId])
+  @@index([documentType])
+  @@index([status])
+  @@index([deletedAt])
+}
+// Booking and Review models
+
+enum BookingStatus {
+  pending
+  accepted
+  completed
+  cancelled
+}
+
+model Booking {
+  id          String   @id @default(uuid())
+  vendorId    String
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  bookingDate String   // could be DateTime in real app
+  bookingTime String
+  status      BookingStatus @default(pending)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([vendorId])
+  @@index([bookingDate])
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  rating      Int
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([businessId])
+}
+
+model OtpSession {
+  id        String   @id @default(uuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+  @@index([expiresAt])
+}
+

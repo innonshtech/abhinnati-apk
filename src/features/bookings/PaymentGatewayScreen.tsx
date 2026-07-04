@@ -1,0 +1,445 @@
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, ActivityIndicator, Pressable } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { ShieldCheck } from 'lucide-react-native';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useBookingStore } from '../../store/useBookingStore';
+import { api } from '../../api/client';
+import { RootStackParamList } from '../../navigation/types';
+
+type NavigationProp = StackNavigationProp<RootStackParamList, 'PaymentGateway'>;
+
+export const PaymentGatewayScreen: React.FC = () => {
+  const navigation = useNavigation<NavigationProp>();
+  const { user, preferredLanguage } = useAuthStore();
+  const {
+    selectedVendorId,
+    selectedVendorName,
+    selectedService,
+    selectedDate,
+    selectedTime,
+    notes,
+    clearBookingState,
+  } = useBookingStore();
+
+  const [processing, setProcessing] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<'upi' | 'card' | 'wallet'>('upi');
+
+  const isMr = preferredLanguage === 'mr';
+  const strings = {
+    header: isMr ? 'पेमेंट' : 'Payment',
+    payUsing: isMr ? 'याद्वारे पैसे द्या' : 'Pay using',
+    upi: 'UPI',
+    card: isMr ? 'क्रेडिट / डेबिट कार्ड' : 'Credit / Debit card',
+    wallet: isMr ? 'वॉलेट' : 'Wallet',
+    totalLabel: isMr ? 'एकूण' : 'Total',
+    btnPay: isMr ? 'पेमेंट करा' : 'Pay',
+    processingText: isMr ? 'पेमेंट सुरक्षितपणे प्रक्रियेत आहे...' : 'Processing your secure payment...',
+  };
+
+  const handlePayment = async () => {
+    const finalVendorId = selectedVendorId || 'vendor-1';
+    const finalVendorName = selectedVendorName || 'Aai’s Bakery';
+    const finalServiceId = selectedService?.id || 'srv-aai-1';
+    const finalServiceName = selectedService ? (isMr ? selectedService.name_mr : selectedService.name_en) : (isMr ? 'कस्टम केक' : 'Custom cake');
+    const finalPrice = selectedService?.price || 600;
+    const finalDate = selectedDate || 'Tue 25';
+    const finalTime = selectedTime || '12:30 PM';
+
+    setProcessing(true);
+    // Simulate gateway delay
+    await new Promise((r) => setTimeout(r, 1500));
+
+    try {
+      const newBooking = await api.createBooking({
+        userId: user?.id || 'guest-user',
+        userName: user?.name || 'अनामिक रहिवासी',
+        userPhone: user?.phone || '+910000000000',
+        vendorId: finalVendorId,
+        vendorName: finalVendorName,
+        serviceId: finalServiceId,
+        serviceName: finalServiceName,
+        price: finalPrice,
+        bookingDate: finalDate,
+        bookingTime: finalTime,
+        notes: notes || undefined,
+        paymentMethod: selectedMethod,
+        transactionId: `pay_mock_${Date.now().toString().slice(-8)}`,
+      });
+
+      setProcessing(false);
+      clearBookingState();
+      navigation.replace('BookingSuccess', { bookingId: newBooking.id });
+    } catch (err) {
+      console.error(err);
+      setProcessing(false);
+      navigation.replace('BookingFailed');
+    }
+  };
+
+  const finalPrice = selectedService?.price || 600;
+  const finalServiceName = selectedService ? (isMr ? selectedService.name_mr : selectedService.name_en) : (isMr ? 'कस्टम केक' : 'Custom cake');
+  
+  // Format Date and Time
+  const formatTimeSlot = (time: string) => {
+    if (time === '10:00') return '10:00 AM';
+    if (time === '12:30') return '12:30 PM';
+    if (time === '4:00') return '4:00 PM';
+    if (time === '5:30') return '5:30 PM';
+    if (time === '6:00') return '6:00 PM';
+    if (time === '7:30') return '7:30 PM';
+    return time;
+  };
+
+  const getFormattedDateLabel = (dateStr: string | null) => {
+    if (!dateStr) return isMr ? 'मंग २५' : 'Tue 25';
+    try {
+      const dateObj = new Date(dateStr);
+      const daysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const daysMr = ['रवि', 'सोम', 'मंग', 'बुध', 'गुरू', 'शुक्र', 'शनी'];
+      
+      const dayLabel = isMr ? daysMr[dateObj.getDay()] : daysEn[dateObj.getDay()];
+      const dayNum = dateObj.getDate();
+      return `${dayLabel} ${dayNum}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formattedDate = getFormattedDateLabel(selectedDate);
+  const formattedTime = formatTimeSlot(selectedTime || '12:30');
+  const serviceSummaryStr = `${finalServiceName} · ${formattedDate}, ${formattedTime}`;
+
+  const renderOption = (method: 'upi' | 'card' | 'wallet', label: string) => {
+    const isSelected = selectedMethod === method;
+    let topPos = 230;
+    if (method === 'card') topPos = 290;
+    if (method === 'wallet') topPos = 350;
+
+    return (
+      <Pressable
+        key={method}
+        onPress={() => setSelectedMethod(method)}
+        disabled={processing}
+        style={[
+          styles.optionCard,
+          { top: topPos },
+          isSelected ? styles.selectedCard : styles.unselectedCard,
+        ]}
+      >
+        <Text style={[
+          styles.optionText,
+          isSelected ? styles.selectedOptionText : styles.unselectedOptionText
+        ]}>
+          {label}
+        </Text>
+        
+        {isSelected ? (
+          <View style={styles.selectedEllipse}>
+            <View style={styles.checkmarkIcon} />
+          </View>
+        ) : (
+          <View style={styles.unselectedEllipse} />
+        )}
+      </Pressable>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {processing ? (
+        <View style={styles.processingContainer}>
+          <ActivityIndicator size="large" color="#E58A2B" />
+          <Text style={styles.processingText}>{strings.processingText}</Text>
+          <View style={styles.secureBadge}>
+            <ShieldCheck size={16} color="#2E7D52" />
+            <Text style={styles.secureText}>PCI-DSS Compliant</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.viewport}>
+          {/* Back Chevron (Vector) */}
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            hitSlop={15}
+          >
+            <View style={styles.backChevron} />
+          </Pressable>
+
+          {/* Screen Title (Payment) */}
+          <Text style={styles.headerTitle}>{strings.header}</Text>
+
+          {/* Divider Line */}
+          <View style={styles.headerDivider} />
+
+          {/* Bill Summary Card */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.serviceName} numberOfLines={1}>
+              {serviceSummaryStr}
+            </Text>
+            <Text style={styles.servicePrice}>₹{finalPrice}</Text>
+            
+            <Text style={styles.totalLabel}>{strings.totalLabel}</Text>
+            <Text style={styles.totalPrice}>₹{finalPrice}</Text>
+          </View>
+
+          {/* Pay Using Label */}
+          <Text style={styles.payUsingLabel}>{strings.payUsing}</Text>
+
+          {/* Payment Options list */}
+          {renderOption('upi', strings.upi)}
+          {renderOption('card', strings.card)}
+          {renderOption('wallet', strings.wallet)}
+
+          {/* Bottom Pay CTA Button */}
+          <Pressable
+            onPress={handlePayment}
+            style={styles.payButton}
+          >
+            <Text style={styles.payButtonText}>
+              {isMr ? `₹${finalPrice} ${strings.btnPay}` : `${strings.btnPay} ₹${finalPrice}`}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FBF6EC', // Warm cream page background
+  },
+  viewport: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: '#FBF6EC',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 22,
+    top: 66,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  backChevron: {
+    width: 8,
+    height: 8,
+    borderLeftWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: '#2A2520',
+    transform: [{ rotate: '45deg' }],
+  },
+  headerTitle: {
+    position: 'absolute',
+    left: 52,
+    top: 64,
+    height: 28,
+    fontFamily: 'Mukta-SemiBold',
+    fontWeight: '600',
+    fontSize: 17,
+    lineHeight: 28,
+    color: '#2A2520',
+  },
+  headerDivider: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 100,
+    height: 1,
+    backgroundColor: '#EFE3CC',
+  },
+  summaryCard: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    top: 116,
+    height: 72,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE3CC',
+    borderRadius: 11,
+  },
+  serviceName: {
+    position: 'absolute',
+    left: 12,
+    top: 12,
+    height: 20,
+    fontFamily: 'Mukta-Regular',
+    fontWeight: '400',
+    fontSize: 12,
+    lineHeight: 20,
+    color: '#6B5F4E',
+    right: 70,
+  },
+  servicePrice: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    height: 20,
+    fontFamily: 'Mukta-Regular',
+    fontWeight: '400',
+    fontSize: 12,
+    lineHeight: 20,
+    color: '#6B5F4E',
+    textAlign: 'right',
+  },
+  totalLabel: {
+    position: 'absolute',
+    left: 12,
+    top: 44,
+    height: 22,
+    fontFamily: 'Mukta-SemiBold',
+    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 22,
+    color: '#2A2520',
+  },
+  totalPrice: {
+    position: 'absolute',
+    right: 12,
+    top: 44,
+    height: 22,
+    fontFamily: 'Mukta-SemiBold',
+    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 22,
+    color: '#2A2520',
+    textAlign: 'right',
+  },
+  payUsingLabel: {
+    position: 'absolute',
+    left: 18,
+    top: 206,
+    height: 22,
+    fontFamily: 'Mukta-Medium',
+    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 22,
+    color: '#6B5F4E',
+  },
+  optionCard: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    height: 52,
+    borderRadius: 11,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  selectedCard: {
+    backgroundColor: '#FDF1DF',
+    borderWidth: 1.5,
+    borderColor: '#E58A2B',
+  },
+  unselectedCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0CFB0',
+  },
+  optionText: {
+    position: 'absolute',
+    left: 14,
+    top: 14.5,
+    height: 23,
+    fontFamily: 'Mukta-Regular',
+    fontSize: 14,
+    lineHeight: 23,
+  },
+  selectedOptionText: {
+    fontFamily: 'Mukta-SemiBold',
+    fontWeight: '600',
+    color: '#2A2520',
+  },
+  unselectedOptionText: {
+    fontFamily: 'Mukta-Regular',
+    fontWeight: '400',
+    color: '#6B5F4E',
+  },
+  selectedEllipse: {
+    position: 'absolute',
+    right: 14,
+    top: 17,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#E58A2B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unselectedEllipse: {
+    position: 'absolute',
+    right: 14,
+    top: 17,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: '#C2B193',
+    backgroundColor: 'transparent',
+  },
+  checkmarkIcon: {
+    width: 9,
+    height: 5,
+    borderLeftWidth: 1.6,
+    borderBottomWidth: 1.6,
+    borderColor: '#FFFFFF',
+    transform: [{ rotate: '-45deg' }],
+    top: -1,
+  },
+  payButton: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    bottom: 78,
+    height: 50,
+    backgroundColor: '#2A2520',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  payButtonText: {
+    fontFamily: 'Mukta-SemiBold',
+    fontWeight: '600',
+    fontSize: 15,
+    lineHeight: 25,
+    color: '#FFFFFF',
+  },
+  processingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  processingText: {
+    fontSize: 14,
+    fontFamily: 'Mukta-Regular',
+    color: '#6B5F4E',
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 14,
+  },
+  secureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E3F0E8',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  secureText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: 'Mukta-SemiBold',
+    color: '#2E7D52',
+  },
+});
+
+export default PaymentGatewayScreen;
