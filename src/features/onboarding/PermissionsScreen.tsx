@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ActivityIndicator, Modal } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ActivityIndicator, Modal, ScrollView, PermissionsAndroid, Platform } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -78,8 +78,38 @@ export const PermissionsScreen: React.FC = () => {
   const handleStart = async () => {
     setError('');
     setLoading(true);
+    
+    // 1. Force Notification Permission Prompt (if supported)
+    if (Platform.OS === 'android') {
+      try {
+        if (Platform.Version >= 33) {
+          await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+        }
+      } catch (err) {
+        console.warn('Notification permission error:', err);
+      }
+    }
+
+    // 2. Force Location Permission Prompt (to bypass mock mode skipping it)
+    if (Platform.OS === 'android') {
+      try {
+        await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'Abhinnati needs your location to find nearby services and your area.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Deny',
+            buttonPositive: 'Allow',
+          }
+        );
+      } catch (err) {
+        console.warn('Location permission error:', err);
+      }
+    }
+
     try {
-      // geoService handles the permission request + GPS + Nominatim reverse geocode
+      // geoService handles the GPS + Nominatim reverse geocode
       setGpsLoading(true);
       const result = await geoService.getCurrentLocation(true);
 
@@ -110,6 +140,8 @@ export const PermissionsScreen: React.FC = () => {
         name_mr: result.matchedArea.name_mr || result.matchedArea.name || result.matchedArea.name_en,
         latitude: result.matchedArea.latitude || result.latitude!,
         longitude: result.matchedArea.longitude || result.longitude!,
+        deviceLatitude: result.latitude!,
+        deviceLongitude: result.longitude!,
         radius_km: result.matchedArea.radius_km || 5.0,
         locality: result.matchedArea.locality || locality,
         city: result.matchedArea.city || result.address?.city || '',
@@ -119,6 +151,8 @@ export const PermissionsScreen: React.FC = () => {
         name_mr: locality,
         latitude: result.latitude!,
         longitude: result.longitude!,
+        deviceLatitude: result.latitude!,
+        deviceLongitude: result.longitude!,
         radius_km: 5.0,
         locality,
         city: result.address?.city || '',
@@ -145,6 +179,8 @@ export const PermissionsScreen: React.FC = () => {
       const isCustom = detectedArea.id.startsWith('gps_');
       const res = await api.updateProfile({ 
         activeAreaId: detectedArea.id,
+        latitude: detectedArea.deviceLatitude || detectedArea.latitude,
+        longitude: detectedArea.deviceLongitude || detectedArea.longitude,
         ...(isCustom ? {
           activeArea: {
             id: detectedArea.id,
@@ -154,7 +190,7 @@ export const PermissionsScreen: React.FC = () => {
             longitude: detectedArea.longitude,
           }
         } : {})
-      });
+      } as any); // using any here to bypass client.ts strict typing for the new fields
       if (res.success) {
         await setActiveArea(detectedArea);
       } else {
@@ -186,20 +222,17 @@ export const PermissionsScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.viewport}>
-        
-        {/* Back chevron button */}
-        <Pressable
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          hitSlop={15}
-        >
+      
+      {/* Header Row - Fixed at top */}
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={20}>
           <View style={styles.backChevron} />
         </Pressable>
+      </View>
 
-        {/* Screen Title */}
-        <Text style={styles.title}>{strings.title}</Text>
-
+      {/* Main Content Area */}
+      <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+        
         {/* Lock illustration vector centered */}
         <View style={styles.lockIllustration}>
           <LockIllustration />
@@ -208,31 +241,36 @@ export const PermissionsScreen: React.FC = () => {
         {/* Subtitle description */}
         <Text style={styles.subtitle}>{strings.subtitle}</Text>
 
-        {/* Location permission card */}
-        <View style={styles.card}>
-          <View style={styles.iconFrame}>
-            <MapPin size={18} color="#E58A2B" fill="#E58A2B" />
+        {/* Cards Wrapper */}
+        <View style={styles.cardsWrapper}>
+          {/* Location permission card */}
+          <View style={styles.card}>
+            <View style={styles.iconFrame}>
+              <MapPin size={18} color="#E58A2B" fill="#E58A2B" />
+            </View>
+            <View style={styles.cardTextContainer}>
+              <Text style={styles.cardTitle}>{strings.locTitle}</Text>
+              <Text style={styles.cardSubtitle} numberOfLines={1}>{strings.locDesc}</Text>
+            </View>
           </View>
-          <View style={styles.cardTextContainer}>
-            <Text style={styles.cardTitle}>{strings.locTitle}</Text>
-            <Text style={styles.cardSubtitle} numberOfLines={1}>{strings.locDesc}</Text>
-          </View>
-        </View>
 
-        {/* Notifications permission card */}
-        <View style={[styles.card, { top: 432 }]}>
-          <View style={styles.iconFrame}>
-            <Bell size={18} color="#E58A2B" fill="#E58A2B" />
-          </View>
-          <View style={styles.cardTextContainer}>
-            <Text style={styles.cardTitle}>{strings.notifTitle}</Text>
-            <Text style={styles.cardSubtitle} numberOfLines={1}>{strings.notifDesc}</Text>
+          {/* Notifications permission card */}
+          <View style={styles.card}>
+            <View style={styles.iconFrame}>
+              <Bell size={18} color="#E58A2B" fill="#E58A2B" />
+            </View>
+            <View style={styles.cardTextContainer}>
+              <Text style={styles.cardTitle}>{strings.notifTitle}</Text>
+              <Text style={styles.cardSubtitle} numberOfLines={1}>{strings.notifDesc}</Text>
+            </View>
           </View>
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      </ScrollView>
 
-        {/* Allow & continue submit button */}
+      {/* Footer pinned to bottom */}
+      <View style={styles.footer}>
         <Animated.View style={[styles.submitButton, animatedButtonStyle]}>
           <Pressable
             onPress={handleStart}
@@ -250,19 +288,15 @@ export const PermissionsScreen: React.FC = () => {
         {/* Pagination Indicators */}
         <View style={styles.indicatorWrapper}>
           {[0, 1, 2, 3, 4, 5].map((idx) => {
-            const isActive = idx === 5; // 6th dot is active
+            const isActive = idx === 4; // 5th dot is active
             return (
               <View
                 key={idx}
-                style={[
-                  styles.dot,
-                  isActive ? styles.activeDot : styles.inactiveDot,
-                ]}
+                style={[styles.dot, isActive ? styles.activeDot : styles.inactiveDot]}
               />
             );
           })}
         </View>
-
       </View>
 
       {/* GPS fetching loader overlay */}
@@ -316,69 +350,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF6EC', // Warm cream page background
   },
-  viewport: {
-    flex: 1,
-    position: 'relative',
-    backgroundColor: '#FBF6EC',
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 56,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
   },
   backButton: {
-    position: 'absolute',
-    left: 22,
-    top: 66,
-    width: 24,
-    height: 24,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
   },
   backChevron: {
-    width: 8,
-    height: 8,
-    borderLeftWidth: 2,
-    borderBottomWidth: 2,
+    width: 9,
+    height: 9,
+    borderLeftWidth: 2.5,
+    borderBottomWidth: 2.5,
     borderColor: '#2A2520',
     transform: [{ rotate: '45deg' }],
   },
-  title: {
-    position: 'absolute',
-    left: 52,
-    top: 54,
-    height: 37,
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
-    fontSize: 22,
-    lineHeight: 37,
-    color: '#2A2520',
-    right: 22,
+  contentContainer: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingHorizontal: 22,
+    paddingTop: 40,
+    paddingBottom: 20,
   },
   lockIllustration: {
-    position: 'absolute',
-    left: 149,
-    top: 129,
-    width: 94.54,
-    height: 89.36,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: 40,
   },
   subtitle: {
-    position: 'absolute',
-    left: 46.5,
-    width: 300,
-    height: 44,
-    top: 286,
     fontFamily: 'Mukta-Regular',
     fontWeight: '400',
     fontSize: 14,
     lineHeight: 22,
     color: '#6B5F4E',
     textAlign: 'center',
+    marginBottom: 32,
+    paddingHorizontal: 10,
+  },
+  cardsWrapper: {
+    width: '100%',
+    gap: 16,
   },
   card: {
-    position: 'absolute',
-    left: 18,
-    width: 357,
+    width: '100%',
     height: 64,
-    top: 352,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#EFE3CC',
@@ -416,15 +435,26 @@ const styles = StyleSheet.create({
     color: '#6B5F4E',
     marginTop: 1,
   },
+  errorText: {
+    fontFamily: 'Mukta-Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    color: '#D32F2F', // Red error text
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  footer: {
+    paddingHorizontal: 22,
+    paddingBottom: 56,
+    paddingTop: 12,
+  },
   submitButton: {
-    position: 'absolute',
-    left: 18,
-    width: 357,
-    height: 50,
-    top: 700,
+    width: '100%',
+    height: 54,
     backgroundColor: '#2A2520',
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
+    marginBottom: 16,
   },
   pressableButton: {
     width: '100%',
@@ -435,17 +465,10 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontFamily: 'Mukta-SemiBold',
     fontWeight: '600',
-    fontSize: 15,
-    lineHeight: 25,
+    fontSize: 16,
     color: '#FFFFFF',
-    textAlign: 'center',
   },
   indicatorWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 792,
-    height: 7,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -462,17 +485,6 @@ const styles = StyleSheet.create({
   inactiveDot: {
     width: 7,
     backgroundColor: '#E0CFB0',
-  },
-  errorText: {
-    position: 'absolute',
-    left: 18,
-    right: 18,
-    top: 660,
-    fontFamily: 'Mukta-Regular',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#D32F2F', // Red error text
-    textAlign: 'center',
   },
   loadingOverlay: {
     position: 'absolute',

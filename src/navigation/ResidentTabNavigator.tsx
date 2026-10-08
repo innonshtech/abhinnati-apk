@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from 'react-native-reanimated';
 import { useAuthStore } from '../store/useAuthStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomHomeIcon, CustomSearchIcon, CustomCalendarIcon, CustomProfileIcon } from '../components/common/Icons';
 import { ResidentTabParamList } from './types';
 
@@ -19,6 +20,7 @@ const capsulePositions = [5, 86, 168, 250];
 const CustomTabBar: React.FC<any> = ({ state, descriptors, navigation }) => {
   const { preferredLanguage } = useAuthStore();
   const isMr = preferredLanguage === 'mr';
+  const insets = useSafeAreaInsets();
 
   const translateX = useSharedValue(capsulePositions[0]);
 
@@ -68,7 +70,7 @@ const CustomTabBar: React.FC<any> = ({ state, descriptors, navigation }) => {
   };
 
   return (
-    <View style={styles.tabBarWrapper}>
+    <View style={[styles.tabBarWrapper, { bottom: Math.max(insets.bottom, 18) + 8 }]}>
       <View style={styles.tabBarContainer}>
         {/* Animated Capsule Background behind icons */}
         <Animated.View style={[styles.activeCapsule, animatedStyle]} />
@@ -133,7 +135,6 @@ export const ResidentTabNavigator: React.FC = () => {
 const styles = StyleSheet.create({
   tabBarWrapper: {
     position: 'absolute',
-    bottom: 18,
     width: 361,
     height: 70,
     alignSelf: 'center',

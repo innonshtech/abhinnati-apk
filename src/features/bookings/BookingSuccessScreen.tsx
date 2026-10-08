@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ActivityIndicator, Dimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { RootStackParamList } from '../../navigation/types';
 import { api } from '../../api/client';
 import { Booking } from '../../api/mockData';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'BookingSuccess'>;
 type RouteProps = RouteProp<RootStackParamList, 'BookingSuccess'>;
@@ -24,7 +25,7 @@ export const BookingSuccessScreen: React.FC = () => {
 
   const strings = {
     title: isMr ? 'बुकिंगची विनंती केली!' : 'Booking Requested',
-    notified: isMr ? 'व्यावसायिकाला कळवले गेले आहे आणि ते लवकरच बुकिंग विनंती स्वीकारतील' : 'The vendor has been notified and will accept booking request soon',
+    notified: isMr ? 'व्यावसायिकाला कळवले गेले आहे आणि ते लवकरच\nबुकिंग विनंती स्वीकारतील' : 'The vendor has been notified and will accept\nbooking request soon',
     btnBack: isMr ? 'परत जा' : 'Back to area',
     btnView: isMr ? 'बुकिंग तपासा' : 'View booking',
     loading: isMr ? 'तपशील लोड करत आहे...' : 'Loading details...',
@@ -37,7 +38,7 @@ export const BookingSuccessScreen: React.FC = () => {
     const fetchBooking = async () => {
       try {
         const bookings = await api.getBookings(user?.id);
-        const b = bookings.find((item) => item.id === bookingId);
+        const b = bookings.find((item: Booking) => item.id === bookingId);
         if (b) {
           setBooking(b);
         }
@@ -62,6 +63,7 @@ export const BookingSuccessScreen: React.FC = () => {
   const contentAnimatedStyle = useAnimatedStyle(() => {
     return {
       opacity: opacity.value,
+      alignItems: 'center',
     };
   });
 
@@ -100,7 +102,9 @@ export const BookingSuccessScreen: React.FC = () => {
       const monthLabel = isMr ? monthsMr[dateObj.getMonth()] : monthsEn[dateObj.getMonth()];
       const dayNum = dateObj.getDate();
       
-      return `${dayLabel}, ${dayNum} ${monthLabel}`;
+      // The design shows "Tue, 25 Jun"
+      const shortMonthEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return isMr ? `${dayLabel}, ${dayNum} ${monthLabel}` : `${dayLabel}, ${dayNum} ${shortMonthEn[dateObj.getMonth()]}`;
     } catch {
       return dateStr;
     }
@@ -108,42 +112,48 @@ export const BookingSuccessScreen: React.FC = () => {
 
   const formattedDate = getFormattedDateLong(booking.bookingDate);
   const formattedTime = formatTimeSlot(booking.bookingTime);
-  const detailsStr = `${booking.vendorName}\n${formattedDate} · ${formattedTime} · ${booking.serviceName}`;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.viewport}>
         
-        {/* Success Rosette (Frame 84x84) */}
-        <Animated.View style={[styles.rosette, rosetteAnimatedStyle]}>
-          <Svg width={37} height={30} viewBox="0 0 37 30">
-            <Path
-              d="M4 14.5l9 9L33 4"
-              stroke="#2E7D52"
-              strokeWidth={5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          </Svg>
-        </Animated.View>
+        <View style={styles.mainContent}>
+          {/* Success Rosette (Frame 84x84) */}
+          <Animated.View style={[styles.rosette, rosetteAnimatedStyle]}>
+            <Svg width={37} height={30} viewBox="0 0 37 30">
+              <Path
+                d="M4 14.5l9 9L33 4"
+                stroke="#2E7D52"
+                strokeWidth={5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </Svg>
+          </Animated.View>
 
-        <Animated.View style={[{ flex: 1 }, contentAnimatedStyle]}>
-          {/* Booking Confirmed Title */}
-          <Text style={styles.title}>{strings.title}</Text>
+          <Animated.View style={contentAnimatedStyle}>
+            {/* Booking Confirmed Title */}
+            <Text style={styles.title}>{strings.title}</Text>
 
-          {/* Details String description */}
-          <Text style={styles.detailsText}>
-            {detailsStr}
-          </Text>
+            {/* Vendor Name */}
+            <Text style={styles.vendorName}>{booking.vendorName}</Text>
+            
+            {/* Details String description */}
+            <Text style={styles.detailsText}>
+              {formattedDate} · {formattedTime} · {booking.serviceName}
+            </Text>
 
-          {/* Divider Frame line */}
-          <View style={styles.divider} />
+            {/* Divider Frame line */}
+            <View style={styles.divider} />
 
-          {/* notified label */}
-          <Text style={styles.notifiedText}>{strings.notified}</Text>
+            {/* notified label */}
+            <Text style={styles.notifiedText}>{strings.notified}</Text>
+          </Animated.View>
+        </View>
 
-          {/* Back to Area Button */}
+        {/* Buttons Row */}
+        <View style={styles.buttonRow}>
           <Pressable
             onPress={() => navigation.navigate('ResidentMain')}
             style={styles.backButton}
@@ -151,93 +161,91 @@ export const BookingSuccessScreen: React.FC = () => {
             <Text style={styles.backButtonText}>{strings.btnBack}</Text>
           </Pressable>
 
-          {/* View Booking Button */}
           <Pressable
             onPress={() => navigation.navigate('BookingDetail', { bookingId })}
             style={styles.viewButton}
           >
             <Text style={styles.viewButtonText}>{strings.btnView}</Text>
           </Pressable>
-        </Animated.View>
+        </View>
 
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6EC', // Warm cream page background
+    backgroundColor: '#F8F5EE', // Matching Figma background closer
   },
   viewport: {
     flex: 1,
-    position: 'relative',
-    backgroundColor: '#FBF6EC',
+    paddingHorizontal: 24,
+    justifyContent: 'space-between',
+  },
+  mainContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 140,
+    paddingBottom: 40,
   },
   rosette: {
-    position: 'absolute',
     width: 84,
     height: 84,
-    left: 154.5,
-    top: 140,
-    backgroundColor: '#E3F0E8',
+    backgroundColor: '#E3F2E9', // Lighter green from figma
     borderRadius: 42,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 32,
   },
   title: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 248,
-    height: 35,
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
-    fontSize: 21,
-    lineHeight: 35,
-    color: '#2A2520',
+    fontFamily: 'Mukta-Bold', // Use Bold for closer match to design
+    fontWeight: '700',
+    fontSize: 24,
+    color: '#242220',
     textAlign: 'center',
+    marginBottom: 16,
+  },
+  vendorName: {
+    fontFamily: 'Mukta-Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    color: '#524F4B',
+    textAlign: 'center',
+    marginBottom: 4,
   },
   detailsText: {
-    position: 'absolute',
-    left: 36.5,
-    right: 36.5,
-    top: 286,
-    height: 46,
     fontFamily: 'Mukta-Regular',
     fontWeight: '400',
     fontSize: 14,
-    lineHeight: 23,
-    color: '#6B5F4E',
+    color: '#524F4B',
     textAlign: 'center',
+    marginBottom: 32,
   },
   divider: {
-    position: 'absolute',
-    left: 56.5,
-    right: 56.5,
-    top: 360,
+    width: '100%',
     height: 1,
-    backgroundColor: '#EFE3CC',
+    backgroundColor: '#E5DCD2',
+    marginBottom: 32,
   },
   notifiedText: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 376,
-    height: 44,
     fontFamily: 'Mukta-Regular',
     fontWeight: '400',
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 22,
-    color: '#8A7C66',
+    color: '#8A857E',
     textAlign: 'center',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: 78,
+    gap: 16,
+  },
   backButton: {
-    position: 'absolute',
-    left: 18,
-    top: 724,
-    width: 170,
+    flex: 1,
     height: 50,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -250,16 +258,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Mukta-SemiBold',
     fontWeight: '600',
     fontSize: 15,
-    lineHeight: 25,
-    color: '#2A2520',
+    color: '#242220',
   },
   viewButton: {
-    position: 'absolute',
-    left: 205,
-    top: 724,
-    width: 170,
+    flex: 1,
     height: 50,
-    backgroundColor: '#2A2520',
+    backgroundColor: '#242220',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -268,19 +272,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Mukta-SemiBold',
     fontWeight: '600',
     fontSize: 15,
-    lineHeight: 25,
     color: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FBF6EC',
+    backgroundColor: '#F8F5EE',
   },
   loadingText: {
     fontSize: 16,
     fontFamily: 'Mukta-Medium',
-    color: '#6B5F4E',
+    color: '#524F4B',
     marginTop: 12,
   },
 });

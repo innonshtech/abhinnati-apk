@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { ChevronLeft, AlertCircle } from 'lucide-react-native';
+import { ChevronLeft, AlertCircle, MapPin } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { 
   useAnimatedStyle, 
@@ -28,12 +28,13 @@ import useAreaSearch from './hooks/useAreaSearch';
 import AreaSearchInput from './components/AreaSearchInput';
 import CurrentLocationButton from './components/CurrentLocationButton';
 import AreaList from './components/AreaList';
+import MapLocationPickerModal from '../../components/modals/MapLocationPickerModal';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'LocationSelect'>;
 
 export const LocationSelectScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const { preferredLanguage, activeArea, setActiveArea, logout, isAuthenticated } = useAuthStore();
+  const { preferredLanguage, activeArea, setActiveArea, logout, isAuthenticated, deviceGps } = useAuthStore();
 
   const isMr = preferredLanguage === 'mr';
   const isNewOnboarding = !activeArea;
@@ -106,15 +107,49 @@ export const LocationSelectScreen: React.FC = () => {
     }
   };
 
+  const [showMapModal, setShowMapModal] = React.useState(false);
+
+  const handleMapLocationSelect = (loc: { latitude: number; longitude: number; name: string }) => {
+    setSelectedArea({
+      id: `map_${loc.latitude.toFixed(5)}_${loc.longitude.toFixed(5)}`,
+      name_en: loc.name,
+      name_mr: loc.name,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+      radius_km: 5.0,
+      locality: loc.name,
+      city: 'Unknown'
+    });
+  };
+
   // Onboarding default operational areas list (Top 4)
   const getDisplayList = () => {
     if (searchText.trim()) {
       return suggestions;
     }
-    // Default onboarding static areas (Ravet (Pune))
-    const onboardingIds = ['area-ravet'];
-    const filtered = operationalAreas.filter(a => onboardingIds.includes(a.id));
-    return filtered.length > 0 ? filtered : operationalAreas.slice(0, 4);
+    let defaultList: Area[] = [];
+
+    // Sort operational areas by distance from deviceGps if available
+    if (deviceGps && deviceGps.latitude && deviceGps.longitude) {
+      const sorted = [...operationalAreas].map(a => {
+        const dLat = a.latitude - deviceGps.latitude!;
+        const dLon = a.longitude - deviceGps.longitude!;
+        return { area: a, dist: dLat * dLat + dLon * dLon };
+      }).sort((a, b) => a.dist - b.dist);
+      defaultList = sorted.map(item => item.area).slice(0, 4);
+    } else {
+      // Default onboarding static areas (Ravet (Pune))
+      const onboardingIds = ['area-ravet'];
+      const filtered = operationalAreas.filter(a => onboardingIds.includes(a.id));
+      defaultList = filtered.length > 0 ? filtered : operationalAreas.slice(0, 4);
+    }
+    
+    // Always show the currently selected area at the top if it's a custom map/gps location
+    if (selectedArea && !operationalAreas.some(a => a.id === selectedArea.id)) {
+      return [selectedArea, ...defaultList];
+    }
+    
+    return defaultList;
   };
 
   // Animated style for continue button (Swiggy / Uber premium transitions)
@@ -195,6 +230,17 @@ export const LocationSelectScreen: React.FC = () => {
                   </View>
                 )}
 
+                {/* Select on Map Button */}
+                <Pressable onPress={() => setShowMapModal(true)} style={styles.mapButton}>
+                  <View style={styles.mapIconCircle}>
+                    <MapPin size={18} color="#E58A2B" />
+                  </View>
+                  <Text style={styles.mapButtonText}>
+                    {isMr ? 'नकाशावर लोकेशन निवडा' : 'Select location on Map'}
+                  </Text>
+                  <ChevronLeft size={16} color="#6B5F4E" style={{ transform: [{ rotate: '180deg' }], marginLeft: 'auto' }} />
+                </Pressable>
+
                 {/* Suggested locations flat list */}
                 <View style={{ flex: 1, marginTop: 10 }}>
                   <AreaList
@@ -240,6 +286,15 @@ export const LocationSelectScreen: React.FC = () => {
           </View>
 
         </View>
+        
+        {/* Map Modal for Onboarding View */}
+        <MapLocationPickerModal
+          visible={showMapModal}
+          onClose={() => setShowMapModal(false)}
+          onSelectLocation={handleMapLocationSelect}
+          isMarathi={isMr}
+          initialLocation={deviceGps || { latitude: 18.5204, longitude: 73.8567 }}
+        />
       </View>
     );
   }
@@ -330,6 +385,13 @@ export const LocationSelectScreen: React.FC = () => {
         </Animated.View>
       </View>
 
+      <MapLocationPickerModal
+        visible={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        onSelectLocation={handleMapLocationSelect}
+        isMarathi={isMr}
+        initialLocation={deviceGps || { latitude: 18.5204, longitude: 73.8567 }}
+      />
     </SafeAreaView>
   );
 };
@@ -393,6 +455,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#EFE3CC',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  mapIconCircle: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#FBE7CC',
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  mapButtonText: {
+    fontFamily: 'Mukta-SemiBold',
+    fontSize: 15,
+    color: '#2A2520',
   },
   submitButtonWrapper: {
     position: 'absolute',

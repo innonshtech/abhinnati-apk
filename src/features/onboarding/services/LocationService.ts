@@ -185,8 +185,9 @@ export const locationServiceWrapper: LocationService = {
     if (!q) return [];
 
     try {
+      // 1. Search locally in operational areas first
       const areas = await locationServiceWrapper.getOperationalAreas();
-      return areas.filter((area) => {
+      const localMatches = areas.filter((area) => {
         const nameEn = (area.name_en || '').toLowerCase();
         const nameMr = (area.name_mr || '').toLowerCase();
         const city = (area.city || '').toLowerCase();
@@ -199,6 +200,37 @@ export const locationServiceWrapper: LocationService = {
           locality.includes(q)
         );
       });
+
+      // If we found local matches, return them immediately
+      if (localMatches.length > 0) {
+        return localMatches;
+      }
+
+      // 2. If no local match, fetch real-world data from Nominatim (OpenStreetMap)
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&countrycodes=in&limit=5`;
+      const response = await fetch(url, { headers: { 'User-Agent': 'AbhinnatiiApp/1.0' } });
+      const data = await response.json();
+      
+      if (data && Array.isArray(data)) {
+        return data.map((item: any) => {
+          const lat = parseFloat(item.lat);
+          const lon = parseFloat(item.lon);
+          const locality = item.address?.suburb || item.address?.neighbourhood || item.address?.city_district || item.name;
+          const city = item.address?.city || item.address?.town || item.address?.village || '';
+          
+          return {
+            id: `nominatim_${lat.toFixed(5)}_${lon.toFixed(5)}`,
+            name_en: locality,
+            name_mr: locality,
+            latitude: lat,
+            longitude: lon,
+            radius_km: 5.0,
+            locality: locality,
+            city: city,
+          };
+        });
+      }
+      return [];
     } catch (err) {
       console.error('[LocationService] Search areas failed:', err);
       return [];

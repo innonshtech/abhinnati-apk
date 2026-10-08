@@ -293,7 +293,7 @@ export const ExploreScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <Header
         localityName={displayLocality}
         preferredLanguage={preferredLanguage}

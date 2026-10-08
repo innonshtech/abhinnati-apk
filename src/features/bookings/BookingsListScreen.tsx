@@ -115,20 +115,22 @@ export const BookingsListScreen: React.FC = () => {
         style={styles.bookingCard}
       >
         <View style={styles.cardContent}>
-          <View style={styles.leftColumn}>
+          <View style={styles.thumbnailContainer}>
+            <View style={styles.thumbnailPlaceholder} />
+          </View>
+          
+          <View style={styles.middleColumn}>
             <Text style={styles.vendorName} numberOfLines={1}>
               {item.vendorName}
             </Text>
             <Text style={styles.serviceName} numberOfLines={1}>
               {item.serviceName}
             </Text>
-            <View style={styles.scheduleRow}>
-              <Calendar size={13} color={theme.colors.textTertiary} style={styles.scheduleIcon} />
-              <Text style={styles.scheduleText}>
-                {formatBookingDate(item.bookingDate, item.bookingTime)}
-              </Text>
-            </View>
+            <Text style={styles.scheduleText}>
+              {formatBookingDate(item.bookingDate, item.bookingTime)}
+            </Text>
           </View>
+
           <View style={styles.rightColumn}>
             <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
               <Text style={[styles.statusBadgeText, { color: statusConfig.text }]}>
@@ -145,7 +147,7 @@ export const BookingsListScreen: React.FC = () => {
   const filteredData = getFilteredBookings();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{strings.title}</Text>
@@ -211,44 +213,42 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: horizontalScale(18),
-    height: verticalScale(56),
+    paddingTop: 66,
+    paddingBottom: 24,
     justifyContent: 'center',
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.borderLight,
+    backgroundColor: 'transparent',
   },
   headerTitle: {
-    fontSize: moderateScale(20),
+    fontSize: moderateScale(22),
     fontFamily: theme.typography.fontFamily.bold,
     fontWeight: '700',
     color: theme.colors.charcoal,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.white,
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.borderLight,
     paddingHorizontal: horizontalScale(18),
+    gap: horizontalScale(16),
   },
   tab: {
-    flex: 1,
     paddingVertical: verticalScale(14),
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: theme.colors.marigold,
+    // Active styling handled directly on text
   },
   tabText: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(15),
     fontFamily: theme.typography.fontFamily.medium,
-    color: theme.colors.textSecondary,
+    fontWeight: '500',
+    color: theme.colors.textTertiary,
   },
   activeTabText: {
     fontFamily: theme.typography.fontFamily.bold,
     fontWeight: '700',
-    color: theme.colors.marigold,
+    color: theme.colors.charcoal,
   },
   loadingContainer: {
     flex: 1,
@@ -264,37 +264,40 @@ const styles = StyleSheet.create({
   bookingCard: {
     padding: horizontalScale(16),
     marginVertical: verticalScale(6),
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: theme.colors.borderLight,
-    borderRadius: theme.radii.card,
+    borderRadius: 16,
+    backgroundColor: theme.colors.white,
+    shadowColor: 'transparent',
   },
   cardContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
-  leftColumn: {
-    flex: 0.7,
+  thumbnailContainer: {
+    marginRight: 14,
+  },
+  thumbnailPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#EEDCC6',
+  },
+  middleColumn: {
+    flex: 1,
+    justifyContent: 'flex-start',
   },
   vendorName: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(15),
     fontFamily: theme.typography.fontFamily.bold,
     fontWeight: '700',
     color: theme.colors.charcoal,
-    marginBottom: verticalScale(2),
+    marginBottom: 2,
   },
   serviceName: {
     fontSize: moderateScale(13),
-    fontFamily: theme.typography.fontFamily.medium,
+    fontFamily: theme.typography.fontFamily.regular,
     color: theme.colors.textSecondary,
-    marginBottom: verticalScale(6),
-  },
-  scheduleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  scheduleIcon: {
-    marginRight: 4,
+    marginBottom: 16,
   },
   scheduleText: {
     fontSize: moderateScale(12),
@@ -302,9 +305,8 @@ const styles = StyleSheet.create({
     color: theme.colors.textTertiary,
   },
   rightColumn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: horizontalScale(8),
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
   statusBadge: {
     paddingHorizontal: horizontalScale(8),

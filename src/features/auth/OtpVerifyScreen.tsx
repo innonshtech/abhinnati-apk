@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Pressable, TextInput, Platform, ActivityIndicator, Keyboard, ScrollView } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ChevronLeft } from 'lucide-react-native';
@@ -22,6 +22,7 @@ export const OtpVerifyScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [timer, setTimer] = useState(30);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const otpInputRef = useRef<TextInput>(null);
   const phoneInputRef = useRef<TextInput>(null);
@@ -29,6 +30,13 @@ export const OtpVerifyScreen: React.FC = () => {
   const isMr = preferredLanguage === 'mr';
   const otpLength = 6;
 
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardHeight(0));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const strings = {
     phoneTitle: isMr ? 'मोबाईल नंबर प्रविष्ट करा' : 'Enter your mobile number',
@@ -66,13 +74,11 @@ export const OtpVerifyScreen: React.FC = () => {
     }
     return () => clearInterval(interval);
   }, [step, timer]);
+
   const handleSendOtp = async (phoneOverride?: any) => {
     const rawPhone = (typeof phoneOverride === 'string') ? phoneOverride : phoneNumber;
-    console.log('[OtpVerifyScreen] handleSendOtp called. phoneNumber:', rawPhone);
     let checkPhone = rawPhone;
-    if (checkPhone.length === 9) {
-      checkPhone = checkPhone + '0';
-    }
+    if (checkPhone.length === 9) checkPhone = checkPhone + '0';
     if (checkPhone.length !== 10 || isNaN(Number(checkPhone))) {
       setError(strings.invalidPhone);
       return;
@@ -90,7 +96,6 @@ export const OtpVerifyScreen: React.FC = () => {
         setError(strings.apiError);
       }
     } catch (err: any) {
-      console.error(err);
       setError(err?.message || strings.apiError);
     } finally {
       setLoading(false);
@@ -99,9 +104,7 @@ export const OtpVerifyScreen: React.FC = () => {
 
   const handleVerifyOtp = async (codeOverride?: any) => {
     const activeCode = (typeof codeOverride === 'string') ? codeOverride : otpCode;
-    console.log('[OtpVerifyScreen] handleVerifyOtp called. activeCode:', activeCode);
     if (activeCode.length !== otpLength || isNaN(Number(activeCode))) {
-      console.log('[OtpVerifyScreen] otp validation failed. length:', activeCode.length);
       setError(strings.invalidOtp);
       return;
     }
@@ -121,19 +124,12 @@ export const OtpVerifyScreen: React.FC = () => {
           name = isMr ? 'पाटील प्लंबर (व्यावसायिक)' : 'Patil Plumbing (Owner)';
         }
 
-        await login({
-          id: userId,
-          name,
-          phone: formattedPhone,
-          role,
-        }, res.isNewUser);
-
+        await login({ id: userId, name, phone: formattedPhone, role }, res.isNewUser);
         navigation.replace('NameSelect');
       } else {
         setError(strings.apiError);
       }
     } catch (err: any) {
-      console.error(err);
       setError(err?.message || strings.apiError);
     } finally {
       setLoading(false);
@@ -151,46 +147,39 @@ export const OtpVerifyScreen: React.FC = () => {
   const dotCount = 6;
 
   return (
-    <View style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-      >
-        <View style={styles.viewport}>
+    <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
+      
+      {/* Header Row - Fixed at top */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => {
+            if (step === 'otp') {
+              setStep('phone');
+              setOtpCode('');
+              setError('');
+            } else {
+              navigation.goBack();
+            }
+          }}
+          style={styles.backButton}
+          hitSlop={20}
+        >
+          <View style={styles.backChevron} />
+        </Pressable>
+        <Text style={styles.title}>
+          {step === 'phone' ? strings.phoneTitle : strings.otpTitle}
+        </Text>
+      </View>
+
+      <View style={styles.flex}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           
-          {/* Back chevron button */}
-          <Pressable
-            onPress={() => {
-              if (step === 'otp') {
-                setStep('phone');
-                setOtpCode('');
-                setError('');
-              } else {
-                navigation.goBack();
-              }
-            }}
-            style={styles.backButton}
-            hitSlop={15}
-          >
-            <View style={styles.backChevron} />
-          </Pressable>
-
-          {/* Title */}
-          <Text style={styles.title}>
-            {step === 'phone' ? strings.phoneTitle : strings.otpTitle}
-          </Text>
-
           {step === 'phone' ? (
             /* PHONE INPUT SCREEN VIEW */
-            <View style={styles.stepContainer}>
-              {/* Subtitle */}
+            <View style={styles.content}>
               <Text style={styles.subtitle}>{strings.phoneSub}</Text>
 
-              {/* Phone Input Box Card Container */}
-              <Pressable
-                onPress={() => phoneInputRef.current?.focus()}
-                style={styles.inputContainer}
-              >
+              <Pressable onPress={() => phoneInputRef.current?.focus()} style={styles.inputContainer}>
                 <Text style={styles.countryCode}>+91</Text>
                 <View style={styles.separator} />
                 <TextInput
@@ -200,11 +189,7 @@ export const OtpVerifyScreen: React.FC = () => {
                     setError('');
                     const cleaned = val.replace(/[^0-9]/g, '').slice(0, 10);
                     setPhoneNumber(cleaned);
-                    if (cleaned.length >= 9) {
-                      setTimeout(() => {
-                        handleSendOtp(cleaned);
-                      }, 400);
-                    }
+                    if (cleaned.length >= 9) setTimeout(() => handleSendOtp(cleaned), 400);
                   }}
                   placeholder={strings.phonePlaceholder}
                   placeholderTextColor="#A89A82"
@@ -215,20 +200,14 @@ export const OtpVerifyScreen: React.FC = () => {
                 />
               </Pressable>
 
-              {/* SMS Rates Note */}
               <Text style={styles.ratesNote}>{strings.smsRates}</Text>
-
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
           ) : (
             /* OTP VERIFICATION SCREEN VIEW */
-            <View style={styles.stepContainer}>
-              {/* Subtitle */}
-              <Text style={styles.subtitle}>
-                {strings.otpSub}{getMaskedPhone(phoneNumber)}
-              </Text>
+            <View style={styles.content}>
+              <Text style={styles.subtitle}>{strings.otpSub}{getMaskedPhone(phoneNumber)}</Text>
 
-              {/* OTP Input Boxes */}
               <TextInput
                 ref={otpInputRef}
                 value={otpCode}
@@ -236,11 +215,7 @@ export const OtpVerifyScreen: React.FC = () => {
                   setError('');
                   const cleaned = val.replace(/[^0-9]/g, '').slice(0, otpLength);
                   setOtpCode(cleaned);
-                  if (cleaned.length === otpLength) {
-                    setTimeout(() => {
-                      handleVerifyOtp(cleaned);
-                    }, 400);
-                  }
+                  if (cleaned.length === otpLength) setTimeout(() => handleVerifyOtp(cleaned), 400);
                 }}
                 keyboardType="number-pad"
                 maxLength={otpLength}
@@ -248,10 +223,7 @@ export const OtpVerifyScreen: React.FC = () => {
                 autoFocus
               />
 
-              <Pressable
-                onPress={() => otpInputRef.current?.focus()}
-                style={styles.otpRow}
-              >
+              <Pressable onPress={() => otpInputRef.current?.focus()} style={styles.otpRow}>
                 {Array.from({ length: otpLength }).map((_, index) => {
                   const digit = otpCode[index] || '';
                   const isFocused = otpCode.length === index;
@@ -271,12 +243,9 @@ export const OtpVerifyScreen: React.FC = () => {
                 })}
               </Pressable>
 
-              {/* Resend Timer / Action Link */}
               <View style={styles.resendWrapper}>
                 {timer > 0 ? (
-                  <Text style={styles.resendTimer}>
-                    {strings.resendPrefix}0:{String(timer).padStart(2, '0')}
-                  </Text>
+                  <Text style={styles.resendTimer}>{strings.resendPrefix}0:{String(timer).padStart(2, '0')}</Text>
                 ) : (
                   <Pressable onPress={handleResend}>
                     <Text style={styles.resendLink}>{strings.resendAction}</Text>
@@ -288,11 +257,15 @@ export const OtpVerifyScreen: React.FC = () => {
             </View>
           )}
 
-          {/* Continue / Submit Button */}
+          <View style={{ flex: 1 }} />
+        </ScrollView>
+
+        {/* Footer */}
+        <View style={styles.footer}>
           <Pressable
             onPress={step === 'phone' ? handleSendOtp : handleVerifyOtp}
-            disabled={loading}
-            style={styles.submitButton}
+            disabled={loading || (step === 'phone' && phoneNumber.length < 9) || (step === 'otp' && otpCode.length < otpLength)}
+            style={[styles.submitButton, { opacity: loading || (step === 'phone' && phoneNumber.length < 9) || (step === 'otp' && otpCode.length < otpLength) ? 0.5 : 1 }]}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
@@ -303,253 +276,50 @@ export const OtpVerifyScreen: React.FC = () => {
             )}
           </Pressable>
 
-          {/* 5-Dot Pagination Indicators */}
+          {/* Pagination Indicators */}
           <View style={styles.indicatorWrapper}>
-            {Array.from({ length: dotCount }).map((_, idx) => {
-              const isActive = activeDotIndex === idx;
-              return (
-                <View
-                  key={idx}
-                  style={[
-                    styles.dot,
-                    isActive ? styles.activeDot : styles.inactiveDot,
-                  ]}
-                />
-              );
-            })}
+            {Array.from({ length: dotCount }).map((_, idx) => (
+              <View key={idx} style={[styles.dot, activeDotIndex === idx ? styles.activeDot : styles.inactiveDot]} />
+            ))}
           </View>
-
         </View>
-      </KeyboardAvoidingView>
+
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FBF6EC', // Warm cream page background
-  },
-  flex: {
-    flex: 1,
-  },
-  viewport: {
-    flex: 1,
-    position: 'relative',
-    backgroundColor: '#FBF6EC',
-  },
-  backButton: {
-    position: 'absolute',
-    left: 22,
-    top: 66,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  backChevron: {
-    width: 8,
-    height: 8,
-    borderLeftWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: '#2A2520',
-    transform: [{ rotate: '45deg' }],
-  },
-  title: {
-    position: 'absolute',
-    left: 52,
-    top: 54,
-    height: 37,
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
-    fontSize: 22,
-    lineHeight: 37,
-    color: '#2A2520',
-    right: 22,
-  },
-  stepContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  subtitle: {
-    position: 'absolute',
-    left: 22,
-    right: 22,
-    top: 259,
-    fontFamily: 'Mukta-Regular',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#6B5F4E',
-  },
-  inputContainer: {
-    position: 'absolute',
-    left: 22,
-    width: 349,
-    height: 54,
-    top: 288,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0CFB0',
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  countryCode: {
-    position: 'absolute',
-    left: 16,
-    top: 8,
-    height: 37,
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
-    fontSize: 22,
-    lineHeight: 37,
-    color: '#2A2520',
-  },
-  separator: {
-    position: 'absolute',
-    left: 64,
-    top: 12,
-    width: 1,
-    height: 28,
-    backgroundColor: '#E0CFB0',
-  },
-  phoneInput: {
-    position: 'absolute',
-    left: 80,
-    right: 16,
-    top: 8,
-    height: 37,
-    fontFamily: 'Mukta-Regular',
-    fontWeight: '400',
-    fontSize: 22,
-    lineHeight: 37,
-    color: '#2A2520',
-    letterSpacing: 2,
-    padding: 0,
-  },
-  ratesNote: {
-    position: 'absolute',
-    left: 22,
-    top: 348,
-    height: 20,
-    fontFamily: 'Mukta-Regular',
-    fontWeight: '400',
-    fontSize: 12,
-    lineHeight: 20,
-    color: '#A89A82',
-  },
-  errorText: {
-    position: 'absolute',
-    left: 22,
-    right: 22,
-    top: 380,
-    fontSize: 13,
-    fontFamily: 'Mukta-Regular',
-    color: '#C0392B',
-  },
-  submitButton: {
-    position: 'absolute',
-    left: 22,
-    width: 349,
-    height: 50,
-    top: 724,
-    backgroundColor: '#2A2520',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-    elevation: 5,
-  },
-  submitButtonText: {
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
-    fontSize: 15,
-    lineHeight: 25,
-    color: '#FFFFFF',
-  },
-  indicatorWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 792,
-    height: 7,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dot: {
-    height: 7,
-    borderRadius: 4,
-  },
-  activeDot: {
-    width: 20,
-    backgroundColor: '#E58A2B',
-  },
-  inactiveDot: {
-    width: 7,
-    backgroundColor: '#E0CFB0',
-  },
-  hiddenTextInput: {
-    position: 'absolute',
-    width: 0,
-    height: 0,
-    opacity: 0,
-  },
-  otpRow: {
-    position: 'absolute',
-    left: 22,
-    width: 349,
-    height: 54,
-    top: 288,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  otpBox: {
-    width: 79,
-    height: 54,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E0CFB0',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  otpBoxFocused: {
-    borderWidth: 2,
-    borderColor: '#E58A2B',
-  },
-  otpBoxFilled: {
-    borderColor: '#E0CFB0',
-  },
-  otpDigit: {
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
-    fontSize: 22,
-    lineHeight: 37,
-    color: '#2A2520',
-  },
-  resendWrapper: {
-    position: 'absolute',
-    left: 22,
-    top: 356,
-    height: 22,
-  },
-  resendTimer: {
-    fontFamily: 'Mukta-Regular',
-    fontSize: 13,
-    lineHeight: 22,
-    color: '#8A7C66',
-  },
-  resendLink: {
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
-    fontSize: 13,
-    lineHeight: 22,
-    color: '#E58A2B',
-  },
+  container: { flex: 1, backgroundColor: '#FBF6EC' },
+  flex: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 56, paddingHorizontal: 8, paddingBottom: 8 },
+  backButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  backChevron: { width: 9, height: 9, borderLeftWidth: 2.5, borderBottomWidth: 2.5, borderColor: '#2A2520', transform: [{ rotate: '45deg' }] },
+  title: { flex: 1, fontFamily: 'Mukta-SemiBold', fontWeight: '700', fontSize: 22, color: '#2A2520', marginRight: 16 },
+  content: { paddingHorizontal: 22, paddingTop: 140 },
+  subtitle: { fontFamily: 'Mukta-Regular', fontWeight: '400', fontSize: 14, lineHeight: 21, color: '#6B5F4E', marginBottom: 8 },
+  inputContainer: { height: 54, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0CFB0', borderRadius: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  countryCode: { fontFamily: 'Mukta-SemiBold', fontWeight: '600', fontSize: 22, color: '#2A2520', paddingHorizontal: 16 },
+  separator: { width: 1, height: 28, backgroundColor: '#E0CFB0' },
+  phoneInput: { flex: 1, fontFamily: 'Mukta-Regular', fontWeight: '400', fontSize: 22, color: '#2A2520', letterSpacing: 2, paddingHorizontal: 16, height: '100%' },
+  ratesNote: { fontFamily: 'Mukta-Regular', fontWeight: '400', fontSize: 12, color: '#A89A82', marginBottom: 8 },
+  errorText: { fontSize: 13, fontFamily: 'Mukta-Regular', color: '#C0392B', marginTop: 8 },
+  otpRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 14 },
+  otpBox: { height: 54, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E0CFB0', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  otpBoxFocused: { borderWidth: 2, borderColor: '#E58A2B' },
+  otpBoxFilled: { borderColor: '#E0CFB0' },
+  otpDigit: { fontFamily: 'Mukta-SemiBold', fontWeight: '600', fontSize: 22, color: '#2A2520' },
+  hiddenTextInput: { position: 'absolute', width: 0, height: 0, opacity: 0 },
+  resendWrapper: { height: 22, justifyContent: 'center' },
+  resendTimer: { fontFamily: 'Mukta-Regular', fontSize: 13, color: '#8A7C66' },
+  resendLink: { fontFamily: 'Mukta-SemiBold', fontWeight: '600', fontSize: 13, color: '#E58A2B' },
+  footer: { paddingHorizontal: 22, paddingBottom: 56, paddingTop: 12 },
+  submitButton: { width: '100%', height: 54, backgroundColor: '#2A2520', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  submitButtonText: { fontFamily: 'Mukta-SemiBold', fontWeight: '600', fontSize: 16, color: '#FFFFFF' },
+  indicatorWrapper: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  dot: { height: 7, borderRadius: 4 },
+  activeDot: { width: 20, backgroundColor: '#E58A2B' },
+  inactiveDot: { width: 7, backgroundColor: '#E0CFB0' },
 });
 
 export default OtpVerifyScreen;

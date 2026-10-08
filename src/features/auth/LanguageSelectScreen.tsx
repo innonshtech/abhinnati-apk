@@ -10,7 +10,6 @@ import { RootStackParamList } from '../../navigation/types';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 import BrandLogo from '../../components/common/BrandLogo';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'LanguageSelect'>;
 
@@ -43,7 +42,7 @@ export const LanguageSelectScreen: React.FC = () => {
   const currentStrings = strings[selectedLang];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Top / Center Content */}
       <View style={styles.content}>
         
@@ -114,7 +113,7 @@ export const LanguageSelectScreen: React.FC = () => {
           <View style={styles.dot} />
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -184,16 +183,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   footer: {
-    paddingHorizontal: horizontalScale(22),
-    paddingBottom: verticalScale(24),
+    paddingHorizontal: 22,
+    paddingBottom: 56,
+    paddingTop: 12,
     alignItems: 'center',
     width: '100%',
   },
   btn: {
     width: '100%',
-    backgroundColor: '#2A2520', // Charcoal primary background
-    height: 50, // Height 50
-    borderRadius: 12, // Radius 12px
+    height: 54,
+    backgroundColor: '#2A2520',
+    borderRadius: 14,
     shadowColor: '#2A2520',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -202,16 +202,16 @@ const styles = StyleSheet.create({
   },
   btnText: {
     color: '#FFFFFF',
-    fontSize: moderateScale(14),
-    fontFamily: theme.typography.fontFamily.semiBold,
+    fontSize: 16,
+    fontFamily: 'Mukta-SemiBold',
     fontWeight: '600',
   },
   indicatorContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: verticalScale(20),
-    gap: 8, // Gap: 8px
+    marginTop: 16,
+    gap: 8,
   },
   dot: {
     width: 7, // width: 7px

@@ -3,10 +3,12 @@ import { StyleSheet, Text, View, ActivityIndicator, Pressable } from 'react-nati
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ShieldCheck } from 'lucide-react-native';
+import { CustomChevronLeft } from '../../components/common/Icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useBookingStore } from '../../store/useBookingStore';
 import { api } from '../../api/client';
 import { RootStackParamList } from '../../navigation/types';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'PaymentGateway'>;
 
@@ -113,10 +115,6 @@ export const PaymentGatewayScreen: React.FC = () => {
 
   const renderOption = (method: 'upi' | 'card' | 'wallet', label: string) => {
     const isSelected = selectedMethod === method;
-    let topPos = 230;
-    if (method === 'card') topPos = 290;
-    if (method === 'wallet') topPos = 350;
-
     return (
       <Pressable
         key={method}
@@ -124,7 +122,6 @@ export const PaymentGatewayScreen: React.FC = () => {
         disabled={processing}
         style={[
           styles.optionCard,
-          { top: topPos },
           isSelected ? styles.selectedCard : styles.unselectedCard,
         ]}
       >
@@ -147,7 +144,7 @@ export const PaymentGatewayScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {processing ? (
         <View style={styles.processingContainer}>
           <ActivityIndicator size="large" color="#E58A2B" />
@@ -159,52 +156,49 @@ export const PaymentGatewayScreen: React.FC = () => {
         </View>
       ) : (
         <View style={styles.viewport}>
-          {/* Back Chevron (Vector) */}
-          <Pressable
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-            hitSlop={15}
-          >
-            <View style={styles.backChevron} />
-          </Pressable>
-
-          {/* Screen Title (Payment) */}
-          <Text style={styles.headerTitle}>{strings.header}</Text>
-
-          {/* Divider Line */}
-          <View style={styles.headerDivider} />
-
-          {/* Bill Summary Card */}
-          <View style={styles.summaryCard}>
-            <Text style={styles.serviceName} numberOfLines={1}>
-              {serviceSummaryStr}
-            </Text>
-            <Text style={styles.servicePrice}>₹{finalPrice}</Text>
-            
-            <Text style={styles.totalLabel}>{strings.totalLabel}</Text>
-            <Text style={styles.totalPrice}>₹{finalPrice}</Text>
+          {/* Navigation Header */}
+          <View style={styles.navigationHeader}>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backRow}>
+              <CustomChevronLeft size={20} color="#2A2520" strokeWidth={3} />
+              <Text style={styles.headerTitle}>{strings.header}</Text>
+            </Pressable>
           </View>
 
-          {/* Pay Using Label */}
-          <Text style={styles.payUsingLabel}>{strings.payUsing}</Text>
+          <View style={styles.content}>
+            {/* Bill Summary Card */}
+            <View style={styles.summaryCard}>
+              <Text style={styles.serviceName} numberOfLines={1}>
+                {serviceSummaryStr}
+              </Text>
+              <Text style={styles.servicePrice}>₹{finalPrice}</Text>
+              
+              <Text style={styles.totalLabel}>{strings.totalLabel}</Text>
+              <Text style={styles.totalPrice}>₹{finalPrice}</Text>
+            </View>
 
-          {/* Payment Options list */}
-          {renderOption('upi', strings.upi)}
-          {renderOption('card', strings.card)}
-          {renderOption('wallet', strings.wallet)}
+            {/* Pay Using Label */}
+            <Text style={styles.payUsingLabel}>{strings.payUsing}</Text>
+
+            {/* Payment Options list */}
+            {renderOption('upi', strings.upi)}
+            {renderOption('card', strings.card)}
+            {renderOption('wallet', strings.wallet)}
+          </View>
 
           {/* Bottom Pay CTA Button */}
-          <Pressable
-            onPress={handlePayment}
-            style={styles.payButton}
-          >
-            <Text style={styles.payButtonText}>
-              {isMr ? `₹${finalPrice} ${strings.btnPay}` : `${strings.btnPay} ₹${finalPrice}`}
-            </Text>
-          </Pressable>
+          <View style={styles.footer}>
+            <Pressable
+              onPress={handlePayment}
+              style={styles.payButton}
+            >
+              <Text style={styles.payButtonText}>
+                {isMr ? `₹${finalPrice} ${strings.btnPay}` : `${strings.btnPay} ₹${finalPrice}`}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -215,56 +209,45 @@ const styles = StyleSheet.create({
   },
   viewport: {
     flex: 1,
-    position: 'relative',
     backgroundColor: '#FBF6EC',
+    justifyContent: 'space-between',
   },
-  backButton: {
-    position: 'absolute',
-    left: 22,
-    top: 66,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
+  content: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+  },
+  footer: {
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+  },
+  navigationHeader: {
+    paddingTop: 66,
+    paddingBottom: 24,
+    backgroundColor: '#FBF6EC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFE3CC',
+  },
+  backRow: {
+    paddingHorizontal: 22,
+    flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 10,
-  },
-  backChevron: {
-    width: 8,
-    height: 8,
-    borderLeftWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: '#2A2520',
-    transform: [{ rotate: '45deg' }],
   },
   headerTitle: {
-    position: 'absolute',
-    left: 52,
-    top: 64,
-    height: 28,
+    fontSize: 17,
     fontFamily: 'Mukta-SemiBold',
     fontWeight: '600',
-    fontSize: 17,
-    lineHeight: 28,
     color: '#2A2520',
-  },
-  headerDivider: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 100,
-    height: 1,
-    backgroundColor: '#EFE3CC',
+    lineHeight: 28,
+    marginLeft: 6,
   },
   summaryCard: {
-    position: 'absolute',
-    left: 18,
-    right: 18,
-    top: 116,
     height: 72,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#EFE3CC',
     borderRadius: 11,
+    marginBottom: 24,
   },
   serviceName: {
     position: 'absolute',
@@ -295,8 +278,8 @@ const styles = StyleSheet.create({
     left: 12,
     top: 44,
     height: 22,
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
+    fontFamily: 'Mukta-Bold',
+    fontWeight: '700',
     fontSize: 13,
     lineHeight: 22,
     color: '#2A2520',
@@ -306,35 +289,31 @@ const styles = StyleSheet.create({
     right: 12,
     top: 44,
     height: 22,
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
+    fontFamily: 'Mukta-Bold',
+    fontWeight: '700',
     fontSize: 13,
     lineHeight: 22,
     color: '#2A2520',
     textAlign: 'right',
   },
   payUsingLabel: {
-    position: 'absolute',
-    left: 18,
-    top: 206,
     height: 22,
     fontFamily: 'Mukta-Medium',
     fontWeight: '500',
     fontSize: 13,
     lineHeight: 22,
     color: '#6B5F4E',
+    marginBottom: 10,
   },
   optionCard: {
-    position: 'absolute',
-    left: 18,
-    right: 18,
     height: 52,
     borderRadius: 11,
     justifyContent: 'center',
     paddingHorizontal: 14,
+    marginBottom: 8,
   },
   selectedCard: {
-    backgroundColor: '#FDF1DF',
+    backgroundColor: '#FCE9CD', // slightly darker orange fill so it is very visible
     borderWidth: 1.5,
     borderColor: '#E58A2B',
   },
@@ -353,8 +332,8 @@ const styles = StyleSheet.create({
     lineHeight: 23,
   },
   selectedOptionText: {
-    fontFamily: 'Mukta-SemiBold',
-    fontWeight: '600',
+    fontFamily: 'Mukta-Bold',
+    fontWeight: '700',
     color: '#2A2520',
   },
   unselectedOptionText: {
@@ -394,10 +373,7 @@ const styles = StyleSheet.create({
     top: -1,
   },
   payButton: {
-    position: 'absolute',
-    left: 18,
-    right: 18,
-    bottom: 78,
+    width: '100%',
     height: 50,
     backgroundColor: '#2A2520',
     borderRadius: 12,

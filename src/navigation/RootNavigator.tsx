@@ -133,7 +133,7 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="Alerts" component={NotificationsScreen} />
           
           {/* Booking & Transaction screens */}
-          <Stack.Screen name="PaymentGateway" component={PaymentGatewayScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="PaymentGateway" component={PaymentGatewayScreen} />
           <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
           <Stack.Screen name="BookingFailed" component={BookingFailedScreen} />
           <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />

@@ -149,7 +149,7 @@ export const BookingScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Navigation Header */}
       <View style={styles.navigationHeader}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backRow}>
@@ -251,16 +251,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF6EC',
   },
   navigationHeader: {
-    height: 100,
+    paddingTop: 66,
+    paddingBottom: 24,
     backgroundColor: '#FBF6EC',
-    position: 'relative',
     borderBottomWidth: 1,
     borderBottomColor: '#EFE3CC',
   },
   backRow: {
-    position: 'absolute',
-    left: 22,
-    top: 66,
+    paddingHorizontal: 22,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -287,11 +285,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   serviceName: {
-    fontSize: moderateScale(14),
-    fontWeight: '600',
-    fontFamily: theme.typography.fontFamily.semiBold,
+    fontSize: moderateScale(15),
+    fontWeight: '700',
+    fontFamily: theme.typography.fontFamily.bold,
     color: '#2A2520',
     lineHeight: 23,
+    marginBottom: 4,
   },
   vendorName: {
     fontSize: moderateScale(12),
@@ -356,7 +355,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 10,
   },
   selectedSlotChip: {
     backgroundColor: '#E58A2B',
