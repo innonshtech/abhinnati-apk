@@ -90,7 +90,7 @@ export interface Post {
   authorId: string;
   authorName: string;
   areaId: string;
-  tag: 'community' | 'local_issue' | 'spotlight';
+  tag: 'community' | 'local_issue' | 'spotlight' | 'ask';
   title_mr: string;
   title_en: string;
   content_mr: string;

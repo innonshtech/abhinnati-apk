@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Menu } from 'lucide-react-native';
 import { CustomHomeIcon, CustomCalendarIcon, CustomProfileIcon } from '../components/common/Icons';
 import { VendorTabParamList } from './types';
@@ -18,6 +19,7 @@ const Tab = createBottomTabNavigator<VendorTabParamList>();
 const CustomVendorTabBar: React.FC<any> = ({ state, descriptors, navigation }) => {
   const { preferredLanguage } = useAuthStore();
   const isMr = preferredLanguage === 'mr';
+  const insets = useSafeAreaInsets();
 
   const getIcon = (routeName: string, isFocused: boolean) => {
     const size = 22;
@@ -55,7 +57,7 @@ const CustomVendorTabBar: React.FC<any> = ({ state, descriptors, navigation }) =
   };
 
   return (
-    <View style={styles.tabBarWrapper}>
+    <View style={[styles.tabBarWrapper, { paddingBottom: Math.max(insets.bottom, 16), height: Math.max(insets.bottom, 16) + 66 }]}>
       <View style={styles.tabBarContainer}>
         {state.routes.map((route: any, index: number) => {
           const isFocused = state.index === index;
@@ -116,8 +118,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1.5,
     borderTopColor: '#EFE3CC',
-    height: 82,
-    paddingBottom: 16,
     justifyContent: 'center',
   },
   tabBarContainer: {

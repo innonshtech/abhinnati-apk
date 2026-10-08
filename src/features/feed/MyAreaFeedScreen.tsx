@@ -509,44 +509,9 @@ export const MyAreaFeedScreen: React.FC = () => {
     );
   }, [postsList, user, heartAnimPostId, isMr]);
 
-  const renderBottomTabBar = useCallback(() => {
-    const isMr = preferredLanguage === 'mr';
-    return (
-      <View style={styles.tabBarWrapper}>
-        <View style={styles.tabBarContainer}>
-          {/* Active capsule background highlights active "Home" tab */}
-          <View style={styles.activeCapsule} />
-
-          {/* Home */}
-          <Pressable style={[styles.tabButton, { left: 5 }]} onPress={() => {}}>
-            <CustomHomeIcon isFocused={true} size={20} />
-            <Text style={[styles.tabLabel, styles.activeTabLabel]}>{isMr ? 'माझा परिसर' : 'Home'}</Text>
-          </Pressable>
-
-          {/* Explore */}
-          <Pressable style={[styles.tabButton, { left: 86 }]} onPress={() => navigation.navigate('ResidentMain', { screen: 'Explore' } as any)}>
-            <CustomSearchIcon isFocused={false} size={20} />
-            <Text style={[styles.tabLabel, styles.inactiveTabLabel]}>{isMr ? 'शोधा' : 'Explore'}</Text>
-          </Pressable>
-
-          {/* Bookings */}
-          <Pressable style={[styles.tabButton, { left: 168 }]} onPress={() => navigation.navigate('ResidentMain', { screen: 'BookingsList' } as any)}>
-            <CustomCalendarIcon isFocused={false} size={20} />
-            <Text style={[styles.tabLabel, styles.inactiveTabLabel]}>{isMr ? 'बुकिंग्स' : 'Bookings'}</Text>
-          </Pressable>
-
-          {/* Profile */}
-          <Pressable style={[styles.tabButton, { left: 250 }]} onPress={() => navigation.navigate('ResidentMain', { screen: 'Profile' } as any)}>
-            <CustomProfileIcon isFocused={false} size={20} />
-            <Text style={[styles.tabLabel, styles.inactiveTabLabel]}>{isMr ? 'प्रोफाईल' : 'Profile'}</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }, [preferredLanguage, navigation]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <FlatList
         data={postsList}
         keyExtractor={(item, index) => item.id + '-' + index}
@@ -564,8 +529,6 @@ export const MyAreaFeedScreen: React.FC = () => {
         updateCellsBatchingPeriod={50}
       />
 
-      {/* Floating Mockup Bottom Navigation tab bar */}
-      {renderBottomTabBar()}
 
       <LanguageModal
         visible={isLangModalVisible}
@@ -590,6 +553,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF6EC', // EXACT Figma frame fill background
   },
   listContent: {
+    paddingTop: 66,
     paddingBottom: 110, // allows scrolling past floating tab bar
   },
   headerTitleContainer: {
@@ -920,64 +884,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Mukta-Regular',
     color: '#6B5F4E',
   },
-  tabBarWrapper: {
-    position: 'absolute',
-    bottom: 18,
-    width: 361,
-    height: 70,
-    alignSelf: 'center',
-    zIndex: 99999,
-  },
-  tabBarContainer: {
-    width: 361,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#EFE3CC',
-    shadowColor: '#2A2520',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 15,
-    elevation: 4,
-  },
-  activeCapsule: {
-    position: 'absolute',
-    width: 106,
-    height: 60,
-    top: 5,
-    left: 5,
-    borderRadius: 30,
-    backgroundColor: '#D0D0D0',
-  },
-  tabButton: {
-    position: 'absolute',
-    width: 106,
-    height: 60,
-    top: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'column',
-    gap: 4,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontFamily: 'Mukta-Medium',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  activeTabLabel: {
-    fontFamily: 'Mukta-Bold',
-    fontWeight: '700',
-    color: '#2A2520',
-  },
-  inactiveTabLabel: {
-    fontFamily: 'Mukta-Medium',
-    fontWeight: '500',
-    color: '#6B5F4E',
-  },
+
   heartOverlay: {
     position: 'absolute',
     left: 0,

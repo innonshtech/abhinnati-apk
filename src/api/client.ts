@@ -194,10 +194,7 @@ export const api = {
 
   getAreas: async () => {
     if (USE_MOCK_API) {
-      return [
-        { id: 'area-1', name: 'Nashik', city: 'Nashik', state: 'Maharashtra', pincode: '422001' },
-        { id: 'area-2', name: 'Pune', city: 'Pune', state: 'Maharashtra', pincode: '411001' },
-      ];
+      return await mockDb.getAreas();
     }
     const response = await apiClient.get('/areas');
     return response.data.data || response.data;
@@ -206,7 +203,10 @@ export const api = {
   // Explore Screen Modules
   getExplore: async () => {
     if (USE_MOCK_API) {
-      return await mockDb.getExploreData?.() ?? [];
+      const categories = await mockDb.getCategories();
+      const allVendors = await mockDb.getVendors('area-1'); // Default to area-1 for mock
+      const popularBusinesses = allVendors.filter(v => v.ratingAvg && v.ratingAvg >= 4.0).slice(0, 5);
+      return { categories, popularBusinesses };
     }
     const response = await apiClient.get('/explore');
     return response.data.data;

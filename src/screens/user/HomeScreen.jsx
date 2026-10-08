@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
     width: horizontalScale(361),
     height: verticalScale(70),
     left: horizontalScale(16),
-    top: verticalScale(764),
+    bottom: verticalScale(20),
     backgroundColor: '#FFFFFF',
     borderRadius: 42,
     borderWidth: 1.5,

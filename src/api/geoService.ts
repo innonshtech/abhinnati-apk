@@ -229,6 +229,8 @@ export const geoService = {
    */
   getCurrentLocation: async (prompt = true): Promise<GeoResult> => {
     // ── Step 0: Mock Bypass ───────────────────────────────────────────────
+    // Temporarily disabled to allow real GPS and real Reverse-Geocoding even in Mock Mode
+    /*
     try {
       const { USE_MOCK_API } = require('./client');
       if (USE_MOCK_API) {
@@ -271,6 +273,7 @@ export const geoService = {
     } catch (e) {
       console.warn('[geoService] Failed to load USE_MOCK_API:', e);
     }
+    */
 
     // ── Step 1: Permission ───────────────────────────────────────────────
     const hasPermission = prompt

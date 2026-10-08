@@ -167,7 +167,22 @@ export const SwitchAreaBottomSheet: React.FC<SwitchAreaBottomSheetProps> = ({
     if (searchText.trim()) {
       return suggestions.filter(a => selectedArea ? a.id !== selectedArea.id : true);
     }
-    // Default list (Ravet, Bandra West, Bandra East, Khar, Santacruz)
+    
+    // Sort operational areas by distance from deviceGps if available
+    const { deviceGps } = useAuthStore.getState();
+    if (deviceGps && deviceGps.latitude && deviceGps.longitude) {
+      const sorted = [...operationalAreas].map(a => {
+        const dLat = a.latitude - deviceGps.latitude!;
+        const dLon = a.longitude - deviceGps.longitude!;
+        return { area: a, dist: dLat * dLat + dLon * dLon };
+      }).sort((a, b) => a.dist - b.dist);
+      return sorted
+        .map(item => item.area)
+        .filter(a => selectedArea ? a.id !== selectedArea.id : true)
+        .slice(0, 3);
+    }
+
+    // Default list fallback
     const defaults = ['area-bandra', 'area-bandra-east', 'area-khar', 'area-santacruz', 'area-baner', 'area-ravet'];
     return operationalAreas
       .filter(a => defaults.includes(a.id) && (selectedArea ? a.id !== selectedArea.id : true))

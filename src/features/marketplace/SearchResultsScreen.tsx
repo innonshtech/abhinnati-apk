@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import SearchBar from '../../components/common/SearchBar';
 import FilterChip from '../../components/common/FilterChip';
 import BusinessCard from '../../components/common/BusinessCard';
-import BottomNavigation from '../../components/common/BottomNavigation';
+
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'SearchResults'>;
@@ -167,7 +167,7 @@ export const SearchResultsScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Navigation Header Arrow */}
       <View style={styles.navigationHeader}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -266,8 +266,7 @@ export const SearchResultsScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Manual glass bottom navigation overlay */}
-      <BottomNavigation activeTab="Explore" onTabPress={handleTabPress} />
+
     </SafeAreaView>
   );
 };
@@ -282,7 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 18,
     height: 30,
-    marginTop: 26,
+    marginTop: 66,
   },
   backBtn: {
     width: 30,

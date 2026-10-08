@@ -12,6 +12,7 @@ import { SwitchAreaBottomSheet } from '../../components/common/SwitchAreaBottomS
 import Header from '../../components/common/Header';
 import BusinessCard from '../../components/common/BusinessCard';
 import BottomNavigation from '../../components/common/BottomNavigation';
+
 import { theme } from '../../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -269,7 +270,7 @@ export const EmptyFeedScreen: React.FC = () => {
   const displayVendors = getDisplayVendors();
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {/* Fixed Sticky Header */}
       <Header
         localityName={displayLocality}
@@ -476,11 +477,6 @@ export const EmptyFeedScreen: React.FC = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Manual glass bottom navigation overlay */}
-      <BottomNavigation
-        activeTab="Home"
-        onTabPress={handleTabPress}
-      />
 
       <LanguageModal
         visible={isLangModalVisible}
@@ -494,6 +490,10 @@ export const EmptyFeedScreen: React.FC = () => {
       <SwitchAreaBottomSheet
         visible={isAreaSheetVisible}
         onClose={() => setIsAreaSheetVisible(false)}
+      />
+      <BottomNavigation
+        activeTab="Home"
+        onTabPress={handleTabPress}
       />
     </SafeAreaView>
   );

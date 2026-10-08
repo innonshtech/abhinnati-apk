@@ -1,13 +1,12 @@
 import React from 'react';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import BrandLogo from '../../components/common/BrandLogo';
 import { theme } from '../../constants/theme';
 import { verticalScale } from '../../hooks/useScale';
 
 export const SplashScreen: React.FC = () => {
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.content}>
         <BrandLogo size={180} showText={true} />
         <ActivityIndicator 
@@ -16,7 +15,7 @@ export const SplashScreen: React.FC = () => {
           style={styles.spinner} 
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
