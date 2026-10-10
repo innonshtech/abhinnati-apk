@@ -72,9 +72,8 @@ export const VendorDashboardScreen: React.FC = () => {
       if (v) {
         setVendor(v);
         
-        // Load vendor specific bookings
         const b = await api.getBookings(undefined, v.id);
-        setBookings(b);
+        setBookings(Array.isArray(b) ? b : (b?.data || []));
       }
     } catch (err) {
       console.error(err);

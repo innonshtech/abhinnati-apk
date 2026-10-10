@@ -36,6 +36,7 @@ model User {
   notificationPreferences NotificationPreference?
   notifications  Notification[]
   auditLogs      AuditLog[]
+  bookings       Booking[]
 
   @@index([phone])
   @@index([email])
@@ -184,6 +185,9 @@ model VendorService {
   descriptionMr String
   descriptionEn String
   isActive      Boolean        @default(true)
+
+  // Relations
+  bookings      Booking[]
 
   // Soft Delete and Audit fields
   createdAt     DateTime       @default(now())
@@ -345,21 +349,73 @@ enum BookingStatus {
   accepted
   completed
   cancelled
+  declined
 }
 
 model Booking {
-  id          String   @id @default(uuid())
-  vendorId    String
-  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  bookingDate String   // could be DateTime in real app
-  bookingTime String
-  status      BookingStatus @default(pending)
+  id            String   @id @default(uuid())
+  vendorId      String
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  serviceId     String?
+  service       VendorService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  price         Float    @default(0)
+  bookingDate   String
+  bookingTime   String
+  notes         String?
+  status        BookingStatus @default(pending)
+  paymentStatus String   @default("pending") // 'pending', 'paid', 'failed', 'refunded'
+  paymentMethod String   @default("cod") // 'upi', 'card', 'cod'
+  transactionId String?
+  trackingStatus String  @default("ordered") // 'ordered', 'en_route', 'in_progress', 'completed'
+  cancelUntil   DateTime?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
   @@index([vendorId])
+  @@index([userId])
   @@index([bookingDate])
+}
+
+model Post {
+  id           String    @id @default(uuid())
+  authorId     String
+  authorName   String
+  areaId       String
+  tag          String    @default("community")
+  titleMr      String
+  titleEn      String
+  contentMr    String
+  contentEn    String
+  likes        Int       @default(0)
+  likedBy      String?   // JSON string of array
+  commentsCount Int      @default(0)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  comments     Comment[]
+
+  @@index([areaId])
+  @@index([authorId])
+}
+
+model Comment {
+  id          String    @id @default(uuid())
+  postId      String
+  post        Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorName  String
+  content     String
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([postId])
 }
 
 model Review {

@@ -23,6 +23,8 @@ import { LocationUseCase } from '../../application/use-cases/vendor/business/loc
 import { ServicesUseCase } from '../../application/use-cases/vendor/services/services.use-case';
 import { KycUseCase } from '../../application/use-cases/vendor/kyc/kyc.use-case';
 
+import { VendorService } from '../../modules/vendor/vendor.service';
+
 import { PrismaUserRepository } from '../../infrastructure/repositories/prisma-user.repository';
 import { PrismaVendorRepository } from '../../infrastructure/repositories/prisma-vendor.repository';
 import { PrismaBusinessRepository } from '../../infrastructure/repositories/prisma-business.repository';
@@ -55,13 +57,195 @@ export class VendorController {
   private static servicesUseCase = new ServicesUseCase(this.businessRepo, this.vendorRepo, this.serviceRepo, this.auditRepo);
   private static kycUseCase = new KycUseCase(this.vendorRepo, this.docRepo, this.auditRepo);
 
+  // Legacy/Helper Services
+  private static vendorService = new VendorService();
+
   private static getContext(req: NextRequest) {
     const ipAddress = req.headers.get('x-forwarded-for') || undefined;
     const userAgent = req.headers.get('user-agent') || undefined;
     return { ipAddress, userAgent };
   }
 
+  static async getAvailability(req: NextRequest) {
+    try {
+      const searchParams = req.nextUrl.searchParams;
+      const vendorId = searchParams.get('vendorId');
+      const date = searchParams.get('date');
+
+      if (date && vendorId) {
+        const result = await this.vendorService.getAvailableSlots(vendorId, date);
+        return ApiResponse.success(result, 'Available slots fetched');
+      } else {
+        const user = await AuthMiddleware.authenticate(req);
+        const result = await this.vendorService.getVendorAvailability(user.userId);
+        return ApiResponse.success(result, 'Vendor availability settings fetched');
+      }
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async updateAvailability(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const body = await req.json();
+      const result = await this.vendorService.updateVendorWeeklyHoursAndRadius(user.userId, body);
+      return ApiResponse.success(result, 'Availability settings updated');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async updateVacation(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const body = await req.json();
+      const result = await this.vendorService.updateVendorVacation(user.userId, body);
+      return ApiResponse.success(result, 'Vacation settings updated');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async blockDate(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const body = await req.json();
+      const result = await this.vendorService.blockDate(user.userId, body.date, body.reason);
+      return ApiResponse.success(result, 'Date blocked successfully');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async unblockDate(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const body = await req.json();
+      const result = await this.vendorService.unblockDate(user.userId, body.date);
+      return ApiResponse.success(result, 'Date unblocked successfully');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async blockSlot(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const body = await req.json();
+      const result = await this.vendorService.blockSlot(user.userId, body.date, body.startTime, body.endTime, body.reason);
+      return ApiResponse.success(result, 'Slot blocked successfully');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async unblockSlot(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const body = await req.json();
+      const result = await this.vendorService.unblockSlot(user.userId, body.date, body.startTime, body.endTime);
+      return ApiResponse.success(result, 'Slot unblocked successfully');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async getVendorReviews(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authorize(req, ['vendor', 'admin']);
+      const searchParams = req.nextUrl.searchParams;
+      const page = parseInt(searchParams.get('page') || '1');
+      const limit = parseInt(searchParams.get('limit') || '10');
+      const result = await this.vendorService.getVendorReviews(user.userId, page, limit);
+      return ApiResponse.success(result, 'Vendor reviews fetched');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async getReviewById(req: NextRequest, { params }: { params: { id: string } }) {
+    try {
+      const user = await AuthMiddleware.authorize(req, ['vendor', 'admin']);
+      const result = await this.vendorService.getReviewById(user.userId, params.id);
+      return ApiResponse.success(result, 'Review fetched');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async postReviewReply(req: NextRequest, { params }: { params: { id: string } }) {
+    try {
+      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const body = await req.json();
+      const result = await this.vendorService.replyToReview(user.userId, params.id, body.reply);
+      return ApiResponse.success(result, 'Reply posted successfully');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async getNotifications(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authenticate(req);
+      const result = await this.vendorService.getVendorNotifications(user.userId);
+      return ApiResponse.success(result, 'Notifications fetched');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async getMarketplaceVendors(req: NextRequest) {
+    try {
+      const { prisma } = require('../../../lib/prisma');
+      const vendors = await prisma.vendor.findMany({
+        where: { kycStatus: 'APPROVED' },
+        include: { business: true }
+      });
+      return ApiResponse.success(vendors, 'Marketplace vendors fetched');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async getPublicVendorProfile(req: NextRequest, { params }: { params: { id: string } }) {
+    try {
+      const { prisma } = require('../../../lib/prisma');
+      const vendor = await prisma.vendor.findUnique({
+        where: { id: params.id },
+        include: { business: true, services: true }
+      });
+      if (!vendor) {
+        return ApiResponse.error('Vendor not found', 404);
+      }
+      return ApiResponse.success({ vendor, business: vendor.business, services: vendor.services }, 'Vendor profile fetched');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
   // --- Profile Endpoints ---
+
+  static async setupProfile(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authenticate(req);
+      const body = await req.json();
+      const result = await this.vendorService.updateVendorProfileSetup(user.userId, body);
+      return ApiResponse.success(result, 'Vendor setup profile updated successfully');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
+
+  static async skipSetup(req: NextRequest) {
+    try {
+      const user = await AuthMiddleware.authenticate(req);
+      const result = await this.vendorService.skipFirstTimeSetup(user.userId);
+      return ApiResponse.success(result, 'Vendor setup skipped successfully');
+    } catch (error) {
+      return ApiResponse.handle(error);
+    }
+  }
 
   static async getProfile(req: NextRequest) {
     try {

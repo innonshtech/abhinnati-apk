@@ -319,12 +319,12 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
     try {
       // Direct integration to API to add service to DB
       await api.saveService(vendorProfile.id, {
-        name_mr: newService.name,
-        name_en: newService.name,
+        nameMr: newService.name,
+        nameEn: newService.name,
         price: parseFloat(newService.price),
-        duration_mins: parseInt(newService.duration, 10),
-        description_mr: newService.description,
-        description_en: newService.description,
+        durationMins: parseInt(newService.duration, 10),
+        descriptionMr: newService.description,
+        descriptionEn: newService.description,
       });
 
       await fetchVendorProfile(); // Reload

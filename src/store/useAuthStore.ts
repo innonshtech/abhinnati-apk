@@ -184,6 +184,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (user) {
       try {
         const profile = await api.getVendorByUserId(user.id);
+        const currentProfile = useAuthStore.getState().vendorProfile;
+        
+        // MOCK PROTECT: If the frontend has already forced firstApprovedLogin to false 
+        // (because the backend setup endpoints are missing), prevent the backend from resetting it to true.
+        if (currentProfile?.firstApprovedLogin === false && profile.firstApprovedLogin === true) {
+          profile.firstApprovedLogin = false;
+        }
+
         set({ vendorProfile: profile });
       } catch (err) {
         console.warn('[fetchVendorProfile] Failed to fetch vendor profile:', err);

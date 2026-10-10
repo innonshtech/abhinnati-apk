@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { mockDb } from './mockDb';
 
-export const USE_MOCK_API = true;
+export const USE_MOCK_API = false;
 
 const API_BASE_URL = Platform.OS === 'android'
   ? 'http://10.0.2.2:3000/api/v1'

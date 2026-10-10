@@ -1,0 +1,271 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
+}
+
+.sidebar {
+  width: 280px;
+  background: white;
+  border-right: 1px solid #E2E8F0;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1E40AF;
+  margin-bottom: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: -0.5px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  color: #64748B;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.navItem.active {
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.navItem:hover:not(.active) {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.mainContent {
+  flex: 1;
+  padding: 48px;
+  overflow-y: auto;
+}
+
+.header {
+  margin-bottom: 40px;
+}
+
+.title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  color: #64748B;
+  font-size: 16px;
+  margin-top: 8px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+.statCard {
+  background: white;
+  padding: 24px;
+  border-radius: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.statCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #3B82F6, #8B5CF6);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.statCard:hover::before {
+  opacity: 1;
+}
+
+.statLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statValue {
+  font-size: 36px;
+  font-weight: 800;
+  color: #0F172A;
+  margin-top: 8px;
+}
+
+.tableContainer {
+  background: white;
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.03), 0 4px 6px -4px rgba(0, 0, 0, 0.03);
+}
+
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.tableTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  padding: 16px;
+  color: #64748B;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #F1F5F9;
+}
+
+.table td {
+  padding: 20px 16px;
+  border-bottom: 1px solid #F1F5F9;
+  color: #334155;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.table tr:hover td {
+  background-color: #F8FAFC;
+}
+
+.vendorInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #E0E7FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4F46E5;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.vendorName {
+  font-weight: 700;
+  color: #0F172A;
+  font-size: 16px;
+}
+
+.vendorBusiness {
+  color: #64748B;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge.pending {
+  background: #FFFBEB;
+  color: #D97706;
+}
+
+.badge.approved {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.actionCell {
+  display: flex;
+  gap: 12px;
+}
+
+.btnApprove {
+  background: #10B981;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.btnApprove:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+}
+
+.btnReject {
+  background: #FFF1F2;
+  color: #E11D48;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btnReject:hover {
+  background: #FFE4E6;
+  color: #BE123C;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px;
+  color: #64748B;
+}
+
+.emptyIcon {
+  color: #CBD5E1;
+  margin-bottom: 16px;
+}
