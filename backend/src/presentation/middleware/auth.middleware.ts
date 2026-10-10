@@ -10,6 +10,7 @@ export class AuthMiddleware {
     // 1. Extract auth header
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[AuthMiddleware] Missing or malformed Authorization header');
       throw new UnauthorizedError('Missing or malformed Authorization header');
     }
 
@@ -18,12 +19,14 @@ export class AuthMiddleware {
     // 2. Verify JWT signature
     const payload = JwtService.verifyToken(token);
     if (!payload) {
+      console.log('[AuthMiddleware] Invalid access token, verification failed');
       throw new UnauthorizedError('Invalid access token');
     }
 
     // 3. Confirm user is active and exists
     const user = await this.userRepo.findById(payload.userId);
     if (!user || !user.isActive) {
+      console.log('[AuthMiddleware] User inactive or not found for userId:', payload.userId);
       throw new UnauthorizedError('User inactive or not found');
     }
 

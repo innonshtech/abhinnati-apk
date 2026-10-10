@@ -17,7 +17,7 @@ type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 export const KycStatusScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const { user, preferredLanguage, setUserMode } = useAuthStore();
+  const { user, preferredLanguage, setUserMode, activeArea } = useAuthStore();
   
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,6 +25,8 @@ export const KycStatusScreen: React.FC = () => {
 
   const isMr = preferredLanguage === 'mr';
   const localityName = isMr ? vendor?.categoryNameMr : vendor?.businessNameEn; // or active area
+
+  const areaName = activeArea ? (isMr ? activeArea.name_mr : activeArea.name_en) : (isMr ? 'वांद्रे पश्चिम' : 'Bandra West');
 
   const strings = {
     back: isMr ? 'पडताळणी' : 'Verification',
@@ -34,7 +36,7 @@ export const KycStatusScreen: React.FC = () => {
       : "We're checking your documents.\nThis usually takes 24–48 hours.",
     notifyText: isMr ? 'मंजूर झाल्यावर आम्ही तुम्हाला सूचित करू' : "We'll notify you when approved",
     editDetails: isMr ? 'तपशील संपादित करा' : 'Edit details',
-    liveTitle: isMr ? 'तुम्ही वांद्रे पश्चिम मध्ये लाईव्ह आहात!' : "You’re living in Bandra West!",
+    liveTitle: isMr ? `तुम्ही ${areaName} मध्ये लाईव्ह आहात!` : `You’re living in ${areaName}!`,
     spotlightTitle: isMr ? 'स्पॉटलाईट पोस्ट केली!' : 'Spotlight posted',
     spotlightSub: isMr 
       ? 'तुमच्या परिसरातील रहिवाशांना सूचित केले गेले.' 

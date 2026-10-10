@@ -175,18 +175,17 @@ export const KycRegistrationScreen: React.FC = () => {
       return;
     }
 
-    // Aadhaar Card upload check
-    if (!files.aadhaar || files.aadhaar.uploadStatus !== 'uploaded') {
-      Alert.alert('Missing Documents', 'Please upload your Aadhaar Card to continue.');
-      return;
-    }
+    // Aadhaar Card upload check removed as requested
 
     setLoading(true);
     try {
       if (user) {
         // Collect uploaded documents list for DTO compatibility
-        const uploadedDocuments = [
-          {
+        const uploadedDocuments = [];
+        const kycDocs: any = {};
+
+        if (files.aadhaar) {
+          uploadedDocuments.push({
             documentId: `doc-aadhaar-${Date.now()}`,
             documentType: 'aadhaar',
             fileName: files.aadhaar.fileName,
@@ -194,16 +193,14 @@ export const KycRegistrationScreen: React.FC = () => {
             fileSize: files.aadhaar.fileSize,
             uploadedAt: files.aadhaar.uploadedAt || new Date().toISOString(),
             verificationStatus: 'Pending Review'
-          }
-        ];
+          });
 
-        const kycDocs = {
-          aadhaar: {
+          kycDocs.aadhaar = {
             fileName: files.aadhaar.fileName,
             mimeType: files.aadhaar.mimeType,
             fileData: files.aadhaar.fileData || '',
-          }
-        };
+          };
+        }
 
         const areaObj = areas.find(a => a.name === selectedArea);
         const selectedAreaId = areaObj?.id || 'area-bandra';
@@ -286,9 +283,8 @@ export const KycRegistrationScreen: React.FC = () => {
         
         {/* Aadhaar Card Card (Mandatory) */}
         <DocumentUploadCard
-          label="Aadhaar Card"
+          label="Aadhaar Card (Optional)"
           file={files.aadhaar}
-          required
           onPressUpload={() => handlePressUpload('aadhaar')}
           onRemove={() => handleRemoveFile('aadhaar')}
           onRetry={() => handleRetryFile('aadhaar')}
