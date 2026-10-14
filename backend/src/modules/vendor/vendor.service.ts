@@ -77,27 +77,30 @@ export class VendorService {
 
     if (data.id) {
       const existing = await this.vendorRepository.findServiceById(data.id);
-      if (!existing || existing.vendorId !== vendor.id) {
+      if (!existing || existing.businessId !== vendor.business?.id) {
         throw new Error('Forbidden');
       }
 
       return this.vendorRepository.updateService(data.id, {
-        name_mr: data.name_mr,
-        name_en: data.name_en,
+        nameMr: data.name_mr || data.nameMr,
+        nameEn: data.name_en || data.nameEn,
         price: data.price,
-        duration_mins: data.duration_mins,
-        description_mr: data.description_mr,
-        description_en: data.description_en,
+        durationMins: data.duration_mins || data.durationMins,
+        descriptionMr: data.description_mr || data.descriptionMr,
+        descriptionEn: data.description_en || data.descriptionEn,
       });
     } else {
+      if (!vendor.business) {
+        throw new Error('Business profile required to create service');
+      }
       return this.vendorRepository.createService({
-        vendorId: vendor.id,
-        name_mr: data.name_mr,
-        name_en: data.name_en,
+        businessId: vendor.business.id,
+        nameMr: data.name_mr || data.nameMr,
+        nameEn: data.name_en || data.nameEn,
         price: data.price,
-        duration_mins: data.duration_mins,
-        description_mr: data.description_mr,
-        description_en: data.description_en,
+        durationMins: data.duration_mins || data.durationMins,
+        descriptionMr: data.description_mr || data.descriptionMr,
+        descriptionEn: data.description_en || data.descriptionEn,
       });
     }
   }
@@ -113,7 +116,7 @@ export class VendorService {
       throw new Error('Service not found');
     }
 
-    if (service.vendorId !== vendor.id) {
+    if (service.businessId !== vendor.business?.id) {
       throw new Error('Forbidden');
     }
 
@@ -127,7 +130,7 @@ export class VendorService {
       throw new Error('Review not found');
     }
 
-    if (review.vendor.userId !== userId) {
+    if (review.business?.vendor?.userId !== userId) {
       throw new Error('Forbidden');
     }
 
@@ -383,12 +386,35 @@ export class VendorService {
   }
 
   async updateVendorVacation(userId: string, data: any) {
-    return this.vendorRepository.updateVendor(userId, {
-      vacationMode: !!data.vacationMode,
-      vacationStart: data.vacationStart ? new Date(data.vacationStart) : null,
-      vacationEnd: data.vacationEnd ? new Date(data.vacationEnd) : null,
-      vacationReason: data.vacationReason || null
+    const isVacation = Boolean(data.vacationMode ?? data.isFullyBooked ?? true);
+    const vacationStart = data.vacationStart ? new Date(data.vacationStart) : null;
+    const vacationEnd = data.vacationEnd ? new Date(data.vacationEnd) : null;
+    const vacationReason = data.vacationReason || null;
+
+    const vendor = await this.vendorRepository.findVendorByUserId(userId);
+    if (!vendor) throw new Error('Vendor profile not found');
+
+    const updatedVendor = await this.vendorRepository.updateVendor(userId, {
+      vacationMode: isVacation,
+      vacationStart,
+      vacationEnd,
+      vacationReason,
     });
+
+    if (vendor.business) {
+      const { prisma } = require('../../../lib/prisma');
+      await prisma.business.update({
+        where: { id: vendor.business.id },
+        data: {
+          vacationMode: isVacation,
+          vacationStart,
+          vacationEnd,
+          vacationReason,
+        },
+      });
+    }
+
+    return updatedVendor;
   }
 
   async blockDate(userId: string, date: string, reason?: string) {
@@ -465,30 +491,25 @@ export class VendorService {
 
     const skip = (page - 1) * limit;
 
+    const businessId = vendor.business?.id;
+    if (!businessId) {
+      return { reviews: [], total: 0, repliedCount: 0, ratingAvg: 0, reviewsCount: 0, page, limit, totalPages: 0 };
+    }
+
     const reviews = await prisma.review.findMany({
-      where: { vendorId: vendor.id },
+      where: { businessId },
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit,
-      include: {
-        user: {
-          select: {
-            name: true,
-            fullName: true,
-            displayName: true,
-            profileImage: true
-          }
-        }
-      }
     });
 
     const total = await prisma.review.count({
-      where: { vendorId: vendor.id }
+      where: { businessId }
     });
 
     const repliedCount = await prisma.review.count({
       where: {
-        vendorId: vendor.id,
+        businessId,
         reply: { not: null }
       }
     });
@@ -511,26 +532,16 @@ export class VendorService {
 
     const review = await prisma.review.findUnique({
       where: { id: reviewId },
-      include: {
-        user: {
-          select: {
-            name: true,
-            fullName: true,
-            displayName: true,
-            profileImage: true
-          }
-        }
-      }
     });
 
     if (!review) throw new Error('Review not found');
-    if (review.vendorId !== vendor.id) throw new Error('Forbidden');
+    if (review.businessId !== vendor.business?.id) throw new Error('Forbidden');
 
     return review;
   }
 
   async getVendorNotifications(userId: string) {
-    return prisma.notificationItem.findMany({
+    return prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' }
     });

@@ -70,6 +70,7 @@ export const NameSelectScreen: React.FC = () => {
         } else {
           await login({ id: `user-${Date.now()}`, name: res.data?.displayName || name.trim(), phone: '+919999999999', role: 'resident' });
         }
+        Keyboard.dismiss();
         navigation.navigate('Permissions');
       } else {
         setError(t('auth.saveNameError'));

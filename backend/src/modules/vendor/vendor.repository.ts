@@ -43,26 +43,26 @@ export class VendorRepository {
   }
 
   async findServiceById(id: string) {
-    return prisma.service.findUnique({
+    return prisma.vendorService.findUnique({
       where: { id },
     });
   }
 
   async createService(data: any) {
-    return prisma.service.create({
+    return prisma.vendorService.create({
       data,
     });
   }
 
   async updateService(id: string, data: any) {
-    return prisma.service.update({
+    return prisma.vendorService.update({
       where: { id },
       data,
     });
   }
 
   async deleteService(id: string) {
-    return prisma.service.delete({
+    return prisma.vendorService.delete({
       where: { id },
     });
   }
@@ -70,7 +70,7 @@ export class VendorRepository {
   async findReviewById(id: string) {
     return prisma.review.findUnique({
       where: { id },
-      include: { vendor: true },
+      include: { business: { include: { vendor: true } } },
     });
   }
 

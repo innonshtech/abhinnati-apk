@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthStore } from '../store/useAuthStore';
-import { initMockDatabase } from '../api/mockDb';
 import { RootStackParamList } from './types';
 import { View, StyleSheet } from 'react-native';
 import HomeScreen from '../screens/HomeScreen';
@@ -65,10 +64,7 @@ export const RootNavigator: React.FC = () => {
   // Initialize DB and Auth Stores on startup
   useEffect(() => {
     const startup = async () => {
-      await Promise.all([
-        initMockDatabase(),
-        initializeAuth(),
-      ]);
+      await initializeAuth();
       setIsDbLoading(false);
     };
     startup();
