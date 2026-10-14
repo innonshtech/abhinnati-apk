@@ -1,60 +1,145 @@
+import { redirect } from 'next/navigation';
+import { prisma } from '@/lib/prisma';
+import { getCurrentAdmin } from '@/lib/admin-auth';
 import AdminDashboardClient from './AdminDashboardClient';
 
-// Disable caching for this route so data is always fresh
+// Disable caching for this route so data is always live from Supabase
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function AdminDashboardPage() {
-  let pendingVendors: any[] = [];
-  let totalApproved = 0;
-  let totalVendors = 0;
-
-  try {
-    const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
-    const [dbPending, dbApproved, dbTotal] = await Promise.all([
-      prisma.vendor.findMany({
-        where: { kycStatus: 'pending' },
-        include: {
-          user: true,
-          business: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.vendor.count({
-        where: { kycStatus: 'approved' },
-      }),
-      prisma.vendor.count(),
-    ]);
-    pendingVendors = dbPending;
-    totalApproved = dbApproved;
-    totalVendors = dbTotal;
-  } catch (error) {
-    console.warn('[AdminDashboard] Database offline or unconfigured, rendering fallback data.');
-    pendingVendors = [
-      {
-        id: 'vendor-sample-1',
-        user: { name: 'Suresh More', phone: '+91 98200 12345' },
-        business: { nameEn: 'More Electrical Works', categoryNameEn: 'Electrical Works' },
-        kycStatus: 'pending',
-      },
-      {
-        id: 'vendor-sample-2',
-        user: { name: 'Kavita Deshmukh', phone: '+91 98190 54321' },
-        business: { nameEn: 'Aai Home Tiffin', categoryNameEn: 'Home-cooked Tiffin' },
-        kycStatus: 'pending',
-      },
-    ];
-    totalApproved = 4;
-    totalVendors = 6;
+  // 1. Verify admin session
+  const admin = await getCurrentAdmin();
+  if (!admin) {
+    redirect('/admin/login');
   }
+
+  // 2. Fetch all real data in parallel from Supabase
+  const [
+    pendingVendors,
+    totalApproved,
+    totalVendors,
+    totalUsers,
+    allUsers,
+    categories,
+    communityPosts,
+    bookings,
+    totalBookings,
+  ] = await Promise.all([
+    prisma.vendor.findMany({
+      where: { kycStatus: 'pending' },
+      include: {
+        user: true,
+        business: true,
+        kycDocuments: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.vendor.count({
+      where: { kycStatus: 'approved' },
+    }),
+    prisma.vendor.count(),
+    prisma.user.count(),
+    prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        language: true,
+        isActive: true,
+        createdAt: true,
+        vendorProfile: {
+          select: {
+            id: true,
+            kycStatus: true,
+            business: {
+              select: {
+                nameEn: true,
+                nameMr: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    }),
+    prisma.category.findMany({
+      orderBy: { displayOrder: 'asc' },
+      include: { subCategories: true },
+    }),
+    prisma.post.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { comments: true },
+    }),
+    prisma.booking.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+          },
+        },
+        vendor: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+              },
+            },
+            business: {
+              select: {
+                id: true,
+                nameEn: true,
+                nameMr: true,
+                whatsappNumber: true,
+                logoUrl: true,
+              },
+            },
+          },
+        },
+        service: {
+          select: {
+            id: true,
+            nameEn: true,
+            nameMr: true,
+            price: true,
+          },
+        },
+      },
+    }),
+    prisma.booking.count(),
+  ]);
 
   const stats = {
     pending: pendingVendors.length,
     approved: totalApproved,
-    total: totalVendors,
+    totalVendors,
+    totalUsers,
+    totalCategories: categories.length,
+    totalPosts: communityPosts.length,
+    totalBookings,
   };
 
-  // Pass data to the client component for interactivity
-  return <AdminDashboardClient initialVendors={pendingVendors} stats={stats} />;
+  // Pass live Supabase data and admin profile to client component
+  return (
+    <AdminDashboardClient
+      adminUser={admin}
+      initialVendors={pendingVendors}
+      initialUsers={allUsers}
+      initialCategories={categories}
+      initialPosts={communityPosts}
+      initialBookings={bookings}
+      stats={stats}
+    />
+  );
 }
