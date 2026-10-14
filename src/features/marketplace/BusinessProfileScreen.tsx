@@ -469,7 +469,7 @@ export const BusinessProfileScreen: React.FC = () => {
         </View>
 
         <View style={styles.ratingStatsRow}>
-          <Text style={styles.largeRatingText}>4.6</Text>
+          <Text style={styles.largeRatingText}>{vendor?.ratingAvg ? Number(vendor.ratingAvg).toFixed(1) : '5.0'}</Text>
           <View style={styles.ratingStarsCol}>
             <View style={styles.starsRow}>
               {[1, 2, 3, 4, 5].map(star => (
@@ -477,33 +477,37 @@ export const BusinessProfileScreen: React.FC = () => {
               ))}
             </View>
             <Text style={styles.ratingSubtext}>
-              {t('marketplace.basedOnReviews', { count: 38 })}
+              {t('marketplace.basedOnReviews', { count: vendor?.reviewsCount ?? vendor?.reviews?.length ?? 0 })}
             </Text>
           </View>
         </View>
 
         {/* Dynamic Reviews List */}
-        {(showAllReviews ? MOCK_REVIEWS : [MOCK_REVIEWS[0]]).map((review) => (
-          <Card key={review.id} style={styles.reviewCard}>
-            <View style={styles.reviewHeader}>
-              <View style={styles.reviewAvatar}>
-                <Text style={styles.reviewAvatarText}>{review.avatar}</Text>
+        {(() => {
+          const activeReviews = (vendor?.reviews && vendor.reviews.length > 0) ? vendor.reviews : MOCK_REVIEWS;
+          const displayReviews = showAllReviews ? activeReviews : activeReviews.slice(0, 1);
+          return displayReviews.map((review: any) => (
+            <Card key={review.id} style={styles.reviewCard}>
+              <View style={styles.reviewHeader}>
+                <View style={styles.reviewAvatar}>
+                  <Text style={styles.reviewAvatarText}>{review.avatar || review.userName?.[0] || 'U'}</Text>
+                </View>
+                <View style={styles.reviewMeta}>
+                  <Text style={styles.reviewAuthor}>{review.userName || 'Verified Resident'}</Text>
+                  <Text style={styles.reviewDate}>{isMr ? (review.date_mr || review.date || 'अलीकडे') : (review.date_en || review.date || 'Recently')}</Text>
+                </View>
+                <View style={styles.reviewStars}>
+                  {Array.from({ length: Math.min(5, Math.max(1, review.rating || 5)) }).map((_, star) => (
+                    <Star key={star} size={12} color={theme.colors.marigold} fill={theme.colors.marigold} style={styles.starSpace} />
+                  ))}
+                </View>
               </View>
-              <View style={styles.reviewMeta}>
-                <Text style={styles.reviewAuthor}>{review.userName}</Text>
-                <Text style={styles.reviewDate}>{isMr ? review.date_mr : review.date_en}</Text>
-              </View>
-              <View style={styles.reviewStars}>
-                {Array.from({ length: review.rating }).map((_, star) => (
-                  <Star key={star} size={12} color={theme.colors.marigold} fill={theme.colors.marigold} style={styles.starSpace} />
-                ))}
-              </View>
-            </View>
-            <Text style={styles.reviewText}>
-              {isMr ? review.text_mr : review.text_en}
-            </Text>
-          </Card>
-        ))}
+              <Text style={styles.reviewText}>
+                {isMr ? (review.text_mr || review.text) : (review.text_en || review.text)}
+              </Text>
+            </Card>
+          ));
+        })()}
 
         {/* Location & Hours Section */}
         <View style={styles.sectionHeaderRow}>

@@ -3,11 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { mockDb } from './mockDb';
 
-export const USE_MOCK_API = true;
+export const USE_MOCK_API = false;
 
 declare const process: any;
 
-const DEFAULT_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+const DEFAULT_HOST = 'http://localhost:3000';
 const envApiUrl = typeof process !== 'undefined' && process?.env ? process.env.API_BASE_URL : undefined;
 const API_BASE_URL = envApiUrl || `${DEFAULT_HOST}/api/v1`;
 

@@ -39,7 +39,8 @@
   "scripts": {
     "start": "react-native start",
     "dev": "react-native start",
-    "android": "adb reverse tcp:3000 tcp:3000 && react-native run-android --no-packager",
+    "android": "adb -s FQBEZTUK9LS8D67X reverse tcp:3000 tcp:3000 && adb -s FQBEZTUK9LS8D67X reverse tcp:8081 tcp:8081 && react-native run-android --deviceId FQBEZTUK9LS8D67X --no-packager",
+    "android:device": "adb -s FQBEZTUK9LS8D67X reverse tcp:3000 tcp:3000 && adb -s FQBEZTUK9LS8D67X reverse tcp:8081 tcp:8081 && react-native run-android --deviceId FQBEZTUK9LS8D67X --no-packager",
     "andorid": "npm run android",
     "ios": "react-native run-ios"
   },

@@ -220,12 +220,25 @@ export class VendorController {
 
   static async getMarketplaceVendors(req: NextRequest) {
     try {
+      const { searchParams } = new URL(req.url);
+      const userId = searchParams.get('userId') || searchParams.get('user_id');
+      const areaId = searchParams.get('area_id') || searchParams.get('areaId');
+      const categorySlug = searchParams.get('category') || searchParams.get('categorySlug');
+
       const { prisma } = require('../../../lib/prisma');
+      
+      const whereCondition: any = {
+        deletedAt: null,
+      };
+
+      if (userId) {
+        whereCondition.OR = [{ userId }, { id: userId }];
+      } else {
+        whereCondition.kycStatus = { in: ['approved', 'APPROVED'] };
+      }
+
       const vendorsDb = await prisma.vendor.findMany({
-        where: {
-          kycStatus: { in: ['approved', 'APPROVED'] },
-          deletedAt: null,
-        },
+        where: whereCondition,
         include: {
           business: {
             include: {
@@ -238,17 +251,19 @@ export class VendorController {
         },
       });
 
-      const mapped = vendorsDb.map((v: any) => {
+      let mapped = vendorsDb.map((v: any) => {
         const b = v.business;
         const loc = b?.locations?.[0];
+        const primaryService = b?.services?.[0];
+        
         return {
           id: v.id,
           userId: v.userId,
           businessNameMr: b?.nameMr || 'नवीन व्यवसाय',
           businessNameEn: b?.nameEn || 'New Business',
-          categorySlug: 'plumbing',
-          categoryNameMr: 'स्थानिक सेवा',
-          categoryNameEn: 'Local Service',
+          categorySlug: categorySlug || (primaryService ? 'services' : 'general'),
+          categoryNameMr: primaryService?.nameMr || 'स्थानिक सेवा',
+          categoryNameEn: primaryService?.nameEn || 'Local Service',
           descriptionMr: b?.descriptionMr || '',
           descriptionEn: b?.descriptionEn || '',
           latitude: loc?.latitude || 18.5204,
@@ -263,6 +278,15 @@ export class VendorController {
           reviews: b?.reviews || [],
         };
       });
+
+      if (areaId) {
+        mapped = mapped.filter((v: any) => v.areaId === areaId);
+      }
+
+      if (userId) {
+        const single = mapped[0] || null;
+        return ApiResponse.success(single, 'Vendor details fetched');
+      }
 
       return ApiResponse.success(mapped, 'Marketplace vendors fetched');
     } catch (error) {

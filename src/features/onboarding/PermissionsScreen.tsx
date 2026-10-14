@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, ActivityIndicator, Modal, ScrollView, PermissionsAndroid, Platform, BackHandler, AppState } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ActivityIndicator, Modal, ScrollView, PermissionsAndroid, Platform, BackHandler, AppState, Keyboard } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -78,6 +78,7 @@ export const PermissionsScreen: React.FC = () => {
   }, [navigation]);
 
   useEffect(() => {
+    Keyboard.dismiss();
     if (Platform.OS !== 'android') return;
     PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION)
       .then(setLocationGranted)
