@@ -39,13 +39,16 @@ export const BookingRequestsScreen: React.FC = () => {
   };
 
   const loadVendorData = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     try {
       const v = await api.getVendorByUserId(user.id);
       if (v) {
         setVendor(v);
         const data = await api.getBookings(undefined, v.id);
-        setBookings(data);
+        setBookings(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error(err);
@@ -66,7 +69,7 @@ export const BookingRequestsScreen: React.FC = () => {
       const updated = await api.updateBookingStatus(bookingId, 'accepted', 'ordered');
       if (updated) {
         const allBookings = await api.getBookings(undefined, vendor?.id);
-        setBookings(allBookings);
+        setBookings(Array.isArray(allBookings) ? allBookings : []);
       }
     } catch (err) {
       console.error(err);
@@ -90,7 +93,7 @@ export const BookingRequestsScreen: React.FC = () => {
               const updated = await api.updateBookingStatus(bookingId, 'declined');
               if (updated) {
                 const allBookings = await api.getBookings(undefined, vendor?.id);
-                setBookings(allBookings);
+                setBookings(Array.isArray(allBookings) ? allBookings : []);
               }
             } catch (err) {
               console.error(err);
@@ -117,17 +120,22 @@ export const BookingRequestsScreen: React.FC = () => {
   };
 
   const getAvatarColors = (name: string) => {
-    if (name.includes('Rohan') || name.includes('रोहन')) {
-      return { bg: '#E8EFE9', text: '#2E7D52' };
+    const palettes = [
+      { bg: '#E8EFE9', text: '#2E7D52' },
+      { bg: '#FDF1DF', text: '#9A5A12' },
+      { bg: '#E8EEF6', text: '#2F5A8F' },
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
-    // Kavita / Default light peach
-    return { bg: '#FDF1DF', text: '#9A5A12' };
+    return palettes[Math.abs(hash) % palettes.length];
   };
 
   const formatBookingDateText = (dateStr: string, timeStr: string) => {
     try {
       const date = new Date(dateStr);
-      const formattedDate = date.toLocaleDateString('en-US', {
+      const formattedDate = date.toLocaleDateString(isMr ? 'mr-IN' : 'en-US', {
         weekday: 'short',
         day: 'numeric',
         month: 'short',
@@ -140,7 +148,7 @@ export const BookingRequestsScreen: React.FC = () => {
 
   const renderBookingItem = ({ item }: { item: Booking }) => {
     const isActionLoading = actionLoadingId === item.id;
-    const avatarColors = getAvatarColors(item.userName);
+    const avatarColors = getAvatarColors(item.userName || '');
 
     return (
       <Card style={styles.bookingCard}>
@@ -149,7 +157,7 @@ export const BookingRequestsScreen: React.FC = () => {
           {/* Avatar bubble */}
           <View style={[styles.avatarBubble, { backgroundColor: avatarColors.bg }]}>
             <Text style={[styles.avatarText, { color: avatarColors.text }]}>
-              {item.userName.charAt(0)}
+              {(item.userName || '?').charAt(0)}
             </Text>
           </View>
 
@@ -164,7 +172,7 @@ export const BookingRequestsScreen: React.FC = () => {
               )}
             </View>
             <Text style={styles.servicePriceText}>
-              {`${item.serviceName} · ₹${item.price}`}
+              {`${isMr ? (item.serviceNameMr || item.serviceName) : (item.serviceNameEn || item.serviceName)} · ₹${item.price}`}
             </Text>
           </View>
         </View>
@@ -209,8 +217,11 @@ export const BookingRequestsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      {/* Page Title */}
-      <Text style={styles.pageTitle}>{strings.title}</Text>
+      {/* Header Title */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{strings.title}</Text>
+      </View>
+      <View style={styles.headerDivider} />
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
@@ -284,14 +295,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pageTitle: {
-    fontSize: 24,
+  header: {
+    paddingHorizontal: horizontalScale(18),
+    paddingTop: verticalScale(18),
+    paddingBottom: verticalScale(12),
+    backgroundColor: '#FBF6EC',
+  },
+  headerTitle: {
+    fontSize: moderateScale(18),
     fontFamily: 'Mukta-Bold',
     fontWeight: '700',
     color: '#2A2520',
-    marginTop: 16,
-    marginBottom: 20,
-    paddingHorizontal: 18,
+    lineHeight: moderateScale(23),
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: '#EFE3CC',
   },
   tabsContainer: {
     flexDirection: 'row',

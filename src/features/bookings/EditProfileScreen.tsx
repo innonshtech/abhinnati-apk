@@ -184,7 +184,7 @@ export const EditProfileScreen: React.FC = () => {
           <Pressable onPress={() => setIsAreaSheetVisible(true)} style={styles.inputCard}>
             <View style={styles.areaRow}>
               <Text style={styles.areaText}>
-                {isMr ? activeArea?.name_mr : activeArea?.name_en || 'Bandra West'}
+                {isMr ? activeArea?.name_mr : activeArea?.name_en || ''}
               </Text>
               <View style={styles.chevronRight} />
             </View>

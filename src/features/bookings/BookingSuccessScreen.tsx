@@ -6,6 +6,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useTranslation } from 'react-i18next';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useBookingStore } from '../../store/useBookingStore';
 import { RootStackParamList } from '../../navigation/types';
 import { api } from '../../api/client';
 import { Booking } from '../../api/mockData';
@@ -18,8 +19,10 @@ export const BookingSuccessScreen: React.FC = () => {
   const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
-  const { bookingId } = route.params;
-  const { preferredLanguage, user } = useAuthStore();
+  const bookingId = route.params?.bookingId;
+  const initialBooking = route.params?.booking;
+  const { preferredLanguage } = useAuthStore();
+  const { selectedVendorName, selectedService, selectedDate, selectedTime } = useBookingStore();
 
   useEffect(() => {
     const onBackPress = () => {
@@ -30,7 +33,9 @@ export const BookingSuccessScreen: React.FC = () => {
     return () => sub.remove();
   }, [navigation]);
 
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [booking, setBooking] = useState<Booking | null>(
+    initialBooking?.id ? (initialBooking as Booking) : null
+  );
 
   const isMr = preferredLanguage === 'mr';
 
@@ -47,20 +52,71 @@ export const BookingSuccessScreen: React.FC = () => {
 
   useEffect(() => {
     const fetchBooking = async () => {
+      if (!bookingId) {
+        if (selectedVendorName && selectedService && selectedDate && selectedTime) {
+          setBooking({
+            id: 'pending',
+            vendorId: '',
+            vendorName: selectedVendorName,
+            serviceId: selectedService.id,
+            serviceName: selectedService.name_en || selectedService.name_mr,
+            bookingDate: selectedDate,
+            bookingTime: selectedTime,
+            price: selectedService.price || 0,
+            status: 'pending',
+            paymentStatus: 'paid',
+            trackingStatus: 'ordered',
+            createdAt: new Date().toISOString(),
+          } as any);
+        }
+        return;
+      }
+
       try {
-        const bookings = await api.getBookings(user?.id);
-        const b = bookings.find((item: Booking) => item.id === bookingId);
-        if (b) {
+        const b = await api.getBooking(bookingId);
+        if (b?.id) {
           setBooking(b);
+          return;
         }
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching booking by ID:', err);
+      }
+
+      if (!initialBooking?.id && selectedVendorName && selectedService && selectedDate && selectedTime) {
+        setBooking({
+          id: bookingId,
+          vendorId: '',
+          vendorName: selectedVendorName,
+          serviceId: selectedService.id,
+          serviceName: selectedService.name_en || selectedService.name_mr,
+          bookingDate: selectedDate,
+          bookingTime: selectedTime,
+          price: selectedService.price || 0,
+          status: 'pending',
+          paymentStatus: 'paid',
+          trackingStatus: 'ordered',
+          createdAt: new Date().toISOString(),
+        } as any);
+      } else if (!initialBooking?.id) {
+        setBooking({
+          id: bookingId,
+          vendorId: '',
+          vendorName: isMr ? 'व्यवसाय' : 'Business',
+          serviceId: '',
+          serviceName: isMr ? 'सेवा' : 'Service',
+          bookingDate: new Date().toISOString().slice(0, 10),
+          bookingTime: '',
+          price: 0,
+          status: 'pending',
+          paymentStatus: 'paid',
+          trackingStatus: 'ordered',
+          createdAt: new Date().toISOString(),
+        } as any);
       }
     };
 
     fetchBooking();
 
-    // Trigger premium animations
     rosetteScale.value = withSpring(1, { damping: 12, stiffness: 90 });
     opacity.value = withDelay(250, withSpring(1));
   }, [bookingId]);
@@ -173,7 +229,12 @@ export const BookingSuccessScreen: React.FC = () => {
           </Pressable>
 
           <Pressable
-            onPress={() => navigation.navigate('BookingDetail', { bookingId })}
+            onPress={() =>
+              navigation.navigate('BookingDetail', {
+                bookingId: booking.id || bookingId,
+                booking,
+              })
+            }
             style={styles.viewButton}
           >
             <Text style={styles.viewButtonText}>{strings.btnView}</Text>

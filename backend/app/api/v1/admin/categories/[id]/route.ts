@@ -15,7 +15,7 @@ export async function PATCH(
     const params = await context.params;
     const categoryId = params.id;
     const body = await request.json();
-    const { nameMr, nameEn, iconName, isActive, displayOrder } = body;
+    const { nameMr, nameEn, iconName, isActive, displayOrder, requiresFssai } = body;
 
     const updated = await prisma.category.update({
       where: { id: categoryId },
@@ -25,6 +25,7 @@ export async function PATCH(
         ...(iconName !== undefined && { iconName }),
         ...(isActive !== undefined && { isActive }),
         ...(displayOrder !== undefined && { displayOrder: Number(displayOrder) }),
+        ...(requiresFssai !== undefined && { requiresFssai: !!requiresFssai }),
       },
     });
 

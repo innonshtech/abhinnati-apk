@@ -22,6 +22,7 @@ export default async function AdminDashboardPage() {
     totalUsers,
     allUsers,
     categories,
+    areas,
     communityPosts,
     bookings,
     totalBookings,
@@ -70,6 +71,19 @@ export default async function AdminDashboardPage() {
       orderBy: { displayOrder: 'asc' },
       include: { subCategories: true },
     }),
+    (async () => {
+      const areaDelegate = (prisma as any).area;
+      if (!areaDelegate?.findMany) return [];
+      try {
+        return await areaDelegate.findMany({
+          orderBy: { nameEn: 'asc' },
+          include: { aliases: true },
+        });
+      } catch (error) {
+        console.warn('[admin] Area query skipped:', error);
+        return [];
+      }
+    })(),
     prisma.post.findMany({
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -137,6 +151,7 @@ export default async function AdminDashboardPage() {
       initialVendors={pendingVendors}
       initialUsers={allUsers}
       initialCategories={categories}
+      initialAreas={areas}
       initialPosts={communityPosts}
       initialBookings={bookings}
       stats={stats}

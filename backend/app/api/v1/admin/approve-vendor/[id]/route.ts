@@ -9,11 +9,15 @@ export async function POST(
     const params = await context.params;
     const id = params.id;
 
-    // Update vendor kycStatus to approved
     const vendor = await prisma.vendor.update({
       where: { id },
       data: { kycStatus: 'approved' },
     });
+
+    await prisma.user.update({
+      where: { id: vendor.userId },
+      data: { role: 'vendor' },
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, vendor });
   } catch (error: any) {

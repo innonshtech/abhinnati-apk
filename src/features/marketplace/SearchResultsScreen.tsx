@@ -21,11 +21,11 @@ export const SearchResultsScreen: React.FC = () => {
   const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
-  const { categorySlug, query } = route.params;
+  const { categorySlug, query } = route.params || {};
   const { preferredLanguage, activeArea, deviceGps } = useAuthStore();
 
-  const [searchQuery, setSearchQuery] = useState(query || (categorySlug === 'plumbing' ? 'Plumber' : ''));
-  const [debouncedQuery, setDebouncedQuery] = useState(query || (categorySlug === 'plumbing' ? 'Plumber' : ''));
+  const [searchQuery, setSearchQuery] = useState(query || '');
+  const [debouncedQuery, setDebouncedQuery] = useState(query || '');
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,7 +62,6 @@ export const SearchResultsScreen: React.FC = () => {
 
   const loadData = useCallback(async (pageNum = 1, isLoadMore = false) => {
     const targetAreaId = deviceGps?.id || activeArea?.id;
-    if (!targetAreaId) return;
 
     try {
       if (isLoadMore) {
@@ -90,7 +89,7 @@ export const SearchResultsScreen: React.FC = () => {
         );
       }
 
-      const fetchedList = res.businesses || [];
+      const fetchedList = Array.isArray(res) ? res : (res?.businesses || res?.data || []);
       
       // Apply filters on client-side if query didn't filter ratings
       let processedList = fetchedList;

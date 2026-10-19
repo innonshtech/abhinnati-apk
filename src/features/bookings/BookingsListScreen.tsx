@@ -45,9 +45,10 @@ export const BookingsListScreen: React.FC = () => {
     try {
       setLoading(true);
       const data = await api.getBookings(user?.id);
-      setBookings(data);
+      setBookings(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ export const BookingsListScreen: React.FC = () => {
   useFocusEffect(
     React.useCallback(() => {
       fetchBookings();
-    }, [])
+    }, [user?.id])
   );
 
   const getFilteredBookings = () => {
@@ -123,10 +124,10 @@ export const BookingsListScreen: React.FC = () => {
           
           <View style={styles.middleColumn}>
             <Text style={styles.vendorName} numberOfLines={1}>
-              {item.vendorName}
+              {isMr ? (item.vendorNameMr || item.vendorName) : (item.vendorNameEn || item.vendorName)}
             </Text>
             <Text style={styles.serviceName} numberOfLines={1}>
-              {item.serviceName}
+              {isMr ? (item.serviceNameMr || item.serviceName) : (item.serviceNameEn || item.serviceName)}
             </Text>
             <Text style={styles.scheduleText}>
               {formatBookingDate(item.bookingDate, item.bookingTime)}
@@ -196,7 +197,7 @@ export const BookingsListScreen: React.FC = () => {
               {activeTab === 'upcoming' && (
                 <Button
                   title={strings.btnExplore}
-                  onPress={() => navigation.navigate('ResidentMain')}
+                  onPress={() => (navigation as any).navigate('Explore')}
                   style={styles.exploreBtn}
                 />
               )}

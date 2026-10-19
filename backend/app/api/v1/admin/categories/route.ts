@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { nameEn, nameMr, iconName, displayOrder } = body;
+    const { nameEn, nameMr, iconName, displayOrder, requiresFssai } = body;
 
     if (!nameEn?.trim() || !nameMr?.trim()) {
       return NextResponse.json(
@@ -97,6 +97,7 @@ export async function POST(request: Request) {
         iconName: iconName?.trim() || 'Sparkles',
         displayOrder: orderNum,
         isActive: true,
+        requiresFssai: !!requiresFssai,
         createdBy: admin.id,
         subCategories: {
           create: {

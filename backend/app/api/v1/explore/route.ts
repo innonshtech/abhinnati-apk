@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
+import { mapVendorsForClient, vendorPublicInclude } from '../../../../lib/catalog';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -8,34 +11,27 @@ export async function GET() {
       orderBy: { displayOrder: 'asc' },
     });
 
-    const businesses = await prisma.business.findMany({
-      where: { deletedAt: null },
-      include: { vendor: true },
-      orderBy: { ratingAvg: 'desc' },
+    const vendors = await prisma.vendor.findMany({
+      where: { deletedAt: null, kycStatus: { in: ['approved', 'APPROVED'] } },
+      include: vendorPublicInclude,
+      orderBy: { createdAt: 'desc' },
       take: 10,
     });
 
-    const popularBusinesses = businesses.map((business) => ({
-      id: business.vendorId,
-      businessNameMr: business.nameMr,
-      businessNameEn: business.nameEn,
-      categoryNameMr: '',
-      categoryNameEn: '',
-      distanceVal: 0,
-      ratingAvg: business.ratingAvg ?? business.vendor.ratingAvg ?? 0,
-      reviewsCount: business.reviewsCount ?? business.vendor.reviewsCount ?? 0,
-      verified: ['approved', 'APPROVED'].includes(business.vendor.kycStatus),
-    }));
+    const popularBusinesses = (await mapVendorsForClient(vendors)).sort(
+      (a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0)
+    );
 
     return NextResponse.json({
       success: true,
       data: {
-        categories: categories.map((category) => ({
+        categories: categories.map((category: any) => ({
           id: category.id,
           slug: category.slug,
           name_mr: category.nameMr,
           name_en: category.nameEn,
           iconName: category.iconName,
+          requiresFssai: category.requiresFssai,
         })),
         popularBusinesses,
       },

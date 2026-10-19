@@ -11,28 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import {
-  CategoryHomeIcon,
-  CategoryFoodIcon,
-  CategoryHealthIcon,
-  CategoryBeautyIcon,
-  CategoryAutoIcon,
-  CategoryEducationIcon,
-  CategoryShoppingIcon,
-  CategoryProfessionalIcon,
-  CategoryPetsIcon,
-  CategoryConstructionIcon,
-  CategoryEventsIcon,
-  CategoryFitnessIcon,
-  CategoryAgricultureIcon,
-  CategoryElectricalIcon,
-  CategoryGardeningIcon,
-  CategoryPhotographyIcon,
-  CategorySecurityIcon,
-  CategoryLogisticsIcon,
-  CategoryDairyIcon,
-  CategoryBooksIcon,
-} from '../../components/common/CategoryIcons';
+import { resolveCategoryIcon } from '../../utils/resolveCategoryIcon';
 import { useAuthStore } from '../../store/useAuthStore';
 import { RootStackParamList } from '../../navigation/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -47,14 +26,6 @@ import { theme } from '../../theme';
 import { useTranslation } from 'react-i18next';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
-
-const categoryIconMap: Record<string, React.FC<any>> = {
-  plumbing: CategoryHomeIcon,
-  food: CategoryFoodIcon,
-  cleaning: CategoryBeautyIcon,
-  electric: CategoryAutoIcon,
-  legal: CategoryProfessionalIcon,
-};
 
 export const ExploreScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -79,7 +50,7 @@ export const ExploreScreen: React.FC = () => {
 
   const isMr = preferredLanguage === 'mr';
   const localityName = isMr ? activeArea?.name_mr : activeArea?.name_en;
-  const displayLocality = localityName || (isMr ? 'वांद्रे पश्चिम' : 'Bandra West');
+  const displayLocality = localityName || t('marketplace.defaultLocality');
 
   const strings = {
     searchPlaceholder: t('marketplace.searchServicePlaceholder'),
@@ -130,10 +101,11 @@ export const ExploreScreen: React.FC = () => {
       }
 
       const res = await api.searchBusinesses(query, activeArea?.id, page, 10);
+      const items = Array.isArray(res) ? res : (res?.businesses || res?.data || []);
       if (loadMore) {
-        setSearchResults((prev) => [...prev, ...(res.businesses || [])]);
+        setSearchResults((prev) => [...prev, ...items]);
       } else {
-        setSearchResults(res.businesses || []);
+        setSearchResults(items);
       }
       setSearchPage(res.pagination?.page || 1);
       setSearchTotalPages(res.pagination?.totalPages || 1);
@@ -179,8 +151,8 @@ export const ExploreScreen: React.FC = () => {
     }
   };
 
-  const getCategoryIcon = (slug: string) => {
-    return categoryIconMap[slug] || CategoryShoppingIcon;
+  const getCategoryIcon = (slug: string, iconName?: string) => {
+    return resolveCategoryIcon(iconName, slug);
   };
 
   const renderContent = () => {
@@ -262,7 +234,7 @@ export const ExploreScreen: React.FC = () => {
             <CategoryCard
               key={cat.id}
               label={isMr ? cat.name_mr : cat.name_en}
-              icon={getCategoryIcon(cat.slug)}
+              icon={getCategoryIcon(cat.slug, cat.iconName)}
               onPress={() => handleCategoryPress(cat.slug)}
             />
           ))}

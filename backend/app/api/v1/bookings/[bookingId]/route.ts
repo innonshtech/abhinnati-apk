@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
 import { BookingStatus } from '@prisma/client';
+import { bookingDetailInclude, mapBookingForClient } from '@/lib/bookings';
+import { createUserNotification } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,11 +15,7 @@ export async function GET(
     const { bookingId } = await params;
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        vendor: { include: { business: true } },
-        user: true,
-        service: true,
-      },
+      include: bookingDetailInclude,
     });
 
     if (!booking) {
@@ -29,33 +27,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: {
-        id: booking.id,
-        userId: booking.userId || '',
-        userName: booking.user?.name || 'Customer',
-        userPhone: booking.user?.phone || '',
-        vendorId: booking.vendorId,
-        vendorName:
-          booking.vendor?.business?.nameMr ||
-          booking.vendor?.business?.nameEn ||
-          'Vendor',
-        serviceId: booking.serviceId || '',
-        serviceName:
-          booking.service?.nameMr ||
-          booking.service?.nameEn ||
-          'Service',
-        price: booking.price,
-        bookingDate: booking.bookingDate,
-        bookingTime: booking.bookingTime,
-        notes: booking.notes,
-        status: booking.status,
-        paymentStatus: booking.paymentStatus,
-        paymentMethod: booking.paymentMethod,
-        transactionId: booking.transactionId,
-        trackingStatus: booking.trackingStatus,
-        cancelUntil: booking.cancelUntil?.toISOString(),
-        createdAt: booking.createdAt.toISOString(),
-      },
+      data: mapBookingForClient(booking),
     });
   } catch (error: any) {
     console.error('[API v1 /bookings/:bookingId GET] Error:', error);
@@ -195,11 +167,38 @@ export async function PATCH(
     const updated = await prisma.booking.update({
       where: { id: bookingId },
       data: updateData,
+      include: bookingDetailInclude,
     });
+
+    const mapped = mapBookingForClient(updated);
+    const vendorLabel = mapped.vendorName || 'Vendor';
+    const serviceLabel = mapped.serviceName || 'service';
+
+    if (status && status !== booking.status && booking.userId) {
+      if (status === BookingStatus.accepted) {
+        await createUserNotification({
+          userId: booking.userId,
+          titleMr: 'बुकिंग मंजूर',
+          titleEn: 'Booking approved',
+          messageMr: `${vendorLabel} यांनी तुमची ${serviceLabel} बुकिंग स्वीकारली आहे.`,
+          messageEn: `${vendorLabel} approved your ${serviceLabel} booking.`,
+          type: 'booking',
+        });
+      } else if (status === BookingStatus.declined) {
+        await createUserNotification({
+          userId: booking.userId,
+          titleMr: 'बुकिंग नाकारली',
+          titleEn: 'Booking declined',
+          messageMr: `${vendorLabel} यांनी तुमची विनंती नाकारली. कृपया दुसरी सेवा निवडा.`,
+          messageEn: `${vendorLabel} declined your request. You can choose another option.`,
+          type: 'booking',
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      data: updated,
+      data: mapped,
       message: 'Booking updated successfully',
     });
   } catch (error: any) {

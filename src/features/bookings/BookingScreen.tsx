@@ -38,6 +38,7 @@ export const BookingScreen: React.FC = () => {
   const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
+  const routeVendorId = route.params?.vendorId;
   const { preferredLanguage } = useAuthStore();
   const {
     selectedVendorId,
@@ -46,9 +47,15 @@ export const BookingScreen: React.FC = () => {
     selectedDate,
     selectedTime,
     notes,
+    setBookingVendor,
+    setBookingService,
     setBookingDateTime,
     setNotes,
   } = useBookingStore();
+
+  const effectiveVendorId = routeVendorId || selectedVendorId;
+  const [loadingVendor, setLoadingVendor] = useState(false);
+  const [vendorDetails, setVendorDetails] = useState<any>(null);
 
   const [dateList, setDateList] = useState<DateItem[]>([]);
   const [localNotes, setLocalNotes] = useState(notes);
@@ -74,6 +81,35 @@ export const BookingScreen: React.FC = () => {
     return () => sub.remove();
   }, [navigation]);
 
+  // If Booking is opened with vendorId but no service is selected, fetch vendor & primary service
+  useEffect(() => {
+    if (!selectedService && effectiveVendorId) {
+      let isMounted = true;
+      setLoadingVendor(true);
+      api.getVendorById(effectiveVendorId)
+        .then((vendor) => {
+          if (!isMounted) return;
+          if (vendor) {
+            setVendorDetails(vendor);
+            const vendorName = isMr ? (vendor.businessNameMr || vendor.businessNameEn) : (vendor.businessNameEn || vendor.businessNameMr);
+            setBookingVendor(vendor.id, vendorName || '');
+            if (Array.isArray(vendor.services) && vendor.services.length > 0) {
+              setBookingService(vendor.services[0]);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('[BookingScreen] Failed to load vendor info:', err);
+        })
+        .finally(() => {
+          if (isMounted) setLoadingVendor(false);
+        });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [selectedService, effectiveVendorId, isMr]);
+
   const strings = {
     back: t('common.back'),
     title: t('bookings.chooseSlot'),
@@ -82,7 +118,7 @@ export const BookingScreen: React.FC = () => {
     timeHeader: t('bookings.timeHeader'),
     notesHeader: t('bookings.notesHeader'),
     notesPlaceholder: t('bookings.notesPlaceholder'),
-    btnPay: t('bookings.btnContinue'),
+    btnContinue: t('bookings.btnContinue'),
     noSlots: t('bookings.noSlots'),
   };
 
@@ -115,13 +151,15 @@ export const BookingScreen: React.FC = () => {
     }
   }, []);
 
+  const activeVendorId = selectedVendorId || effectiveVendorId;
+
   useEffect(() => {
-    if (!selectedDate || !selectedVendorId) return;
+    if (!selectedDate || !activeVendorId) return;
 
     const fetchSlots = async () => {
       setSlotsLoading(true);
       try {
-        const res = await api.getAvailableSlots(selectedVendorId, selectedDate);
+        const res = await api.getAvailableSlots(activeVendorId, selectedDate);
         setSlotsList(res.data || []);
       } catch (err) {
         console.warn('Failed to load slots from backend:', err);
@@ -139,9 +177,7 @@ export const BookingScreen: React.FC = () => {
     };
 
     fetchSlots();
-  }, [selectedDate, selectedVendorId]);
-
-
+  }, [selectedDate, activeVendorId]);
 
   const handleSelectDate = (dateString: string) => {
     setBookingDateTime(dateString, ''); // Reset time when date changes
@@ -153,16 +189,70 @@ export const BookingScreen: React.FC = () => {
     }
   };
 
-  const handleProceedToPayment = () => {
+  const handleContinue = () => {
     setNotes(localNotes);
-    navigation.navigate('PaymentGateway');
+    navigation.navigate('ConfirmBooking');
   };
+
+  if (loadingVendor) {
+    return (
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+        <View style={styles.navigationHeader}>
+          <Pressable onPress={handleBack} style={styles.backRow} accessibilityLabel="Go back">
+            <CustomChevronLeft size={20} color="#2A2520" strokeWidth={3} />
+            <Text style={styles.headerTitle}>{strings.title}</Text>
+          </Pressable>
+        </View>
+        <View style={styles.loadingCenter}>
+          <ActivityIndicator size="large" color="#E58A2B" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!selectedService) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text>{t('bookings.noServiceSelected')}</Text>
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+        <View style={styles.navigationHeader}>
+          <Pressable onPress={handleBack} style={styles.backRow} accessibilityLabel="Go back">
+            <CustomChevronLeft size={20} color="#2A2520" strokeWidth={3} />
+            <Text style={styles.headerTitle}>{strings.title}</Text>
+          </Pressable>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>
+            {vendorDetails
+              ? (isMr ? 'कोणतीही सेवा उपलब्ध नाही' : 'No Services Available')
+              : t('bookings.noServiceSelected')}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            {vendorDetails
+              ? (isMr
+                  ? 'हा विक्रेता सध्या ऑनलाइन बुकिंगसाठी सेवा उपलब्ध करत नाही. आपण त्यांच्या प्रोफाईलवरून थेट संपर्क साधू शकता.'
+                  : 'This business does not have online booking services listed yet. You can visit their profile to contact them directly.')
+              : (isMr
+                  ? 'कृपया बुकिंग सुरू करण्यासाठी आधी सेवा निवडा.'
+                  : 'Please select a service from the business profile to continue booking.')}
+          </Text>
+          {effectiveVendorId ? (
+            <Pressable
+              onPress={() => navigation.navigate('BusinessProfile', { vendorId: effectiveVendorId })}
+              style={styles.viewProfileBtn}
+            >
+              <Text style={styles.viewProfileBtnText}>
+                {isMr ? 'व्यवसाय प्रोफाईल पहा' : 'View Business Profile'}
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={handleBack}
+              style={styles.viewProfileBtn}
+            >
+              <Text style={styles.viewProfileBtnText}>
+                {isMr ? 'मागे जा' : 'Go Back'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -252,11 +342,10 @@ export const BookingScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* Footer Payment Proceed CTA */}
       <View style={styles.footer}>
         <Button
-          title={strings.btnPay}
-          onPress={handleProceedToPayment}
+          title={strings.btnContinue}
+          onPress={handleContinue}
           disabled={!selectedDate || !selectedTime}
           style={styles.btn}
         />
@@ -409,6 +498,46 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 12,
     backgroundColor: '#2A2520',
+  },
+  loadingCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    fontSize: moderateScale(17),
+    fontFamily: theme.typography.fontFamily.semiBold,
+    fontWeight: '600',
+    color: '#2A2520',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: moderateScale(14),
+    fontFamily: theme.typography.fontFamily.regular,
+    color: '#6B5F4E',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  viewProfileBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#E58A2B',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  viewProfileBtnText: {
+    color: '#FFFFFF',
+    fontSize: moderateScale(14),
+    fontFamily: theme.typography.fontFamily.semiBold,
+    fontWeight: '600',
   },
 });
 

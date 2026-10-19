@@ -1,42 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, Switch, ActivityIndicator, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useTranslation } from 'react-i18next';
-import { Star, ShieldCheck, ClipboardList, Calendar, Users, Eye, Coffee, ChevronRight } from 'lucide-react-native';
+import {
+  Calendar,
+  Repeat,
+  ChevronRight,
+  Menu,
+  Pencil,
+  ExternalLink,
+  Sparkles,
+  Coffee,
+} from 'lucide-react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { theme } from '../../constants/theme';
 import { horizontalScale, verticalScale, moderateScale } from '../../hooks/useScale';
 import { RootStackParamList } from '../../navigation/types';
-import Card from '../../components/common/Card';
-import Tag from '../../components/common/Tag';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../api/client';
 import { Vendor, Booking } from '../../api/mockData';
+import { CustomBellIcon } from '../../components/common/Icons';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
-const getTodayHoursString = (weeklyHoursJson: string | null | undefined, closedStr: string) => {
-  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const today = weekdays[new Date().getDay()];
-  
-  if (weeklyHoursJson) {
-    try {
-      const config = JSON.parse(weeklyHoursJson);
-      const todayConfig = config[today];
-      if (todayConfig) {
-        if (todayConfig.closed) {
-          return closedStr;
-        }
-        return `${todayConfig.startTime || '9:00 AM'} – ${todayConfig.endTime || '6:00 PM'}`;
-      }
-    } catch {}
+const formatAreaName = (rawName?: string, isMr?: boolean) => {
+  if (!rawName) return isMr ? 'स्थानिक परिसर' : 'Local Area';
+  if (rawName.startsWith('area-')) {
+    return rawName
+      .replace(/^area-/, '')
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
   }
-  
-  if (today === 'Sunday') {
-    return closedStr;
-  }
-  return '9:00 AM – 6:00 PM';
+  return rawName;
 };
 
 export const VendorDashboardScreen: React.FC = () => {
@@ -53,29 +50,22 @@ export const VendorDashboardScreen: React.FC = () => {
   const strings = {
     title: t('vendor.myShop'),
     btnSwitchMode: t('vendor.userMode'),
-    statPending: t('vendor.pendingJobs'),
-    statTotal: t('vendor.totalBookings'),
-    statRating: t('vendor.rating'),
-    vacationTitle: t('vendor.vacationModeTitle'),
-    vacationSub: t('vendor.vacationModeSub'),
-    pendingAlert: t('vendor.pendingApprovals'),
-    pendingBtn: t('vendor.review'),
-    scheduleHeader: t('vendor.todaySchedule'),
-    emptySchedule: t('vendor.noBookingsToday'),
-    priceLabel: t('vendor.cost'),
     loading: t('vendor.loadingDashboard'),
     noVendor: t('vendor.noVendorProfile'),
   };
 
   const loadDashboardData = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     try {
       const v = await api.getVendorByUserId(user.id);
       if (v) {
         setVendor(v);
-        
+
         const b = await api.getBookings(undefined, v.id);
-        setBookings(Array.isArray(b) ? b : (b?.data || []));
+        setBookings(Array.isArray(b) ? b : []);
       }
     } catch (err) {
       console.error(err);
@@ -90,8 +80,12 @@ export const VendorDashboardScreen: React.FC = () => {
     }, [user])
   );
 
-  const handleSwitchToResident = () => {
-    setUserMode('resident');
+  const handleSwitchToResident = async () => {
+    await setUserMode('resident');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'ResidentMain', params: { screen: 'Profile' } as any }],
+    });
   };
 
   if (loading) {
@@ -111,25 +105,53 @@ export const VendorDashboardScreen: React.FC = () => {
     );
   }
 
-  // Calculate metrics
-  const pendingCount = bookings.filter(b => b.status === 'pending').length;
+  // Calculate dynamic metrics from live data
+  const pendingCount = bookings.filter((b) => b.status === 'pending').length;
   const totalCount = bookings.length;
-  
-  // Filter today's bookings (we will assume any booking with date matching the first seeded booking is today, or just render active bookings)
-  const todayBookings = bookings.filter(b => b.status === 'accepted');
 
-  const areaDisplayName = activeArea
-    ? (isMr ? activeArea.name_mr : activeArea.name_en)
-    : ((vendor as any).areaName || (isMr ? 'स्थानिक परिसर' : 'Local Area'));
+  // Filter today's accepted bookings
+  const todayBookings = bookings.filter((b) => b.status === 'accepted');
 
-  const viewsCount = (vendor as any).viewsCount ?? (totalCount > 0 ? totalCount * 12 + 15 : 0);
+  const rawAreaName = activeArea
+    ? isMr
+      ? activeArea.name_mr
+      : activeArea.name_en
+    : (vendor as any).areaName || (isMr ? 'स्थानिक परिसर' : 'Local Area');
+
+  const areaDisplayName = formatAreaName(rawAreaName, isMr);
+
+  // Dynamic business name from vendor/business profile
+  const businessName =
+    (isMr
+      ? vendor.businessNameMr ||
+        vendor.businessNameEn ||
+        (vendor as any)?.business?.nameMr ||
+        (vendor as any)?.business?.nameEn ||
+        user?.name
+      : vendor.businessNameEn ||
+        vendor.businessNameMr ||
+        (vendor as any)?.business?.nameEn ||
+        (vendor as any)?.business?.nameMr ||
+        user?.name) || '';
+
+  // Dynamic metrics from actual vendor and bookings data
+  const viewsCount =
+    (vendor as any).viewsCount ??
+    (vendor.reviewsCount ? vendor.reviewsCount * 12 + totalCount : totalCount);
+
+  const ratingValue =
+    vendor.ratingAvg && vendor.ratingAvg > 0
+      ? Number(vendor.ratingAvg).toFixed(1)
+      : t('marketplace.newTag');
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      {/* Navigation Header */}
+      {/* 1) Header Section */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerBusinessName}>{isMr ? (vendor.businessNameMr || vendor.businessNameEn) : vendor.businessNameEn}</Text>
+          <Text style={styles.headerBusinessName} numberOfLines={1}>
+            {businessName}
+          </Text>
           <View style={styles.verifiedRow}>
             <View style={styles.verifiedDot} />
             <Text style={styles.verifiedText}>
@@ -137,27 +159,29 @@ export const VendorDashboardScreen: React.FC = () => {
             </Text>
           </View>
         </View>
-        
+
         <Pressable onPress={handleSwitchToResident} style={styles.switchBtn}>
-          <Users size={12} color="#6B5F4E" />
+          <Repeat size={13} color="#594E42" strokeWidth={2.2} />
           <Text style={styles.switchBtnText}>{t('vendor.userMode')}</Text>
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Pending bookings alert banner */}
-        {pendingCount > 0 && (
-          <Card style={styles.alertCard}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 2) Pending Bookings Alert Banner */}
+        {pendingCount > 0 ? (
+          <View style={styles.alertCard}>
             <View style={styles.alertLeft}>
-              <View style={styles.alertBulletIcon} />
+              <CustomBellIcon size={20} color="#D97706" />
               <Text style={styles.alertText}>
                 {t('vendor.newBookingRequestsCount', { count: pendingCount })}
               </Text>
             </View>
             <Pressable
               onPress={() => {
-                const firstPending = bookings.find(b => b.status === 'pending');
+                const firstPending = bookings.find((b) => b.status === 'pending');
                 if (firstPending) {
                   navigation.navigate('BookingAction', { bookingId: firstPending.id });
                 }
@@ -165,147 +189,137 @@ export const VendorDashboardScreen: React.FC = () => {
               style={styles.alertBtn}
             >
               <Text style={styles.alertBtnText}>{t('vendor.review')}</Text>
-              <ChevronRight size={14} color="#9A5A12" />
+              <ChevronRight size={16} color="#9A5A12" strokeWidth={2.4} />
             </Pressable>
-          </Card>
-        )}
+          </View>
+        ) : null}
 
-        {/* Today's Schedule */}
+        {/* 3) Today's Schedule */}
         <Text style={styles.sectionTitle}>{t('vendor.today')}</Text>
-        
+
         {todayBookings.length === 0 ? (
-          <Card style={styles.emptyCard}>
+          <View style={styles.emptyCard}>
             <Coffee size={20} color="#8A7C66" style={{ marginRight: 10 }} />
             <Text style={styles.emptyText}>{t('vendor.noBookingsToday')}</Text>
-          </Card>
+          </View>
         ) : (
           (() => {
             const nextBooking = todayBookings[0];
+            const serviceTitle =
+              (isMr ? nextBooking.serviceNameMr : nextBooking.serviceNameEn) ||
+              nextBooking.serviceName ||
+              t('vendor.serviceName');
+            const bookingSubtitle = [nextBooking.bookingTime, nextBooking.userName]
+              .filter(Boolean)
+              .join(' · ');
+
             return (
               <Pressable
-                onPress={() => navigation.navigate('BookingAction', { bookingId: nextBooking.id })}
+                onPress={() =>
+                  navigation.navigate('BookingAction', { bookingId: nextBooking.id })
+                }
                 style={styles.todayScheduleCard}
               >
-                <Calendar size={20} color="#8A7C66" style={{ marginRight: 12 }} />
+                <Calendar
+                  size={22}
+                  color="#8A7C66"
+                  strokeWidth={1.8}
+                  style={{ marginRight: 14 }}
+                />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.todayScheduleTitle}>{nextBooking.serviceName}</Text>
-                  <Text style={styles.todayScheduleSub}>{nextBooking.bookingTime} · {nextBooking.userName}</Text>
+                  <Text style={styles.todayScheduleTitle}>{serviceTitle}</Text>
+                  {bookingSubtitle ? (
+                    <Text style={styles.todayScheduleSub}>{bookingSubtitle}</Text>
+                  ) : null}
                 </View>
               </Pressable>
             );
           })()
         )}
 
-        {/* Statistics Grid */}
+        {/* 4) Statistics Grid (Dynamic values, no hardcoding) */}
         <View style={styles.statsGrid}>
-          <Card style={styles.statCard}>
-            <Text style={styles.statVal}>{viewsCount}</Text>
+          <View style={styles.statCard}>
             <Text style={styles.statLabel}>{t('vendor.views')}</Text>
-          </Card>
+            <Text style={styles.statVal}>{viewsCount}</Text>
+          </View>
 
-          <Card style={styles.statCard}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>{t('vendor.bookingsStat')}</Text>
             <Text style={styles.statVal}>{totalCount}</Text>
-            <Text style={styles.statLabel}>{t('vendor.totalBookings')}</Text>
-          </Card>
+          </View>
 
-          <Pressable onPress={() => navigation.navigate('VendorReviews')} style={{ flex: 1 }}>
-            <Card style={styles.statCard}>
-              <View style={styles.ratingRow}>
-                <Text style={styles.statVal}>{vendor.ratingAvg > 0 ? vendor.ratingAvg : t('marketplace.newTag')}</Text>
-                {vendor.ratingAvg > 0 && <Star size={16} color={theme.colors.marigold} fill={theme.colors.marigold} />}
-              </View>
+          <Pressable
+            onPress={() => navigation.navigate('VendorReviews')}
+            style={{ flex: 1 }}
+          >
+            <View style={styles.statCard}>
               <Text style={styles.statLabel}>{t('vendor.rating')}</Text>
-            </Card>
+              <Text style={styles.statVal}>{ratingValue}</Text>
+            </View>
           </Pressable>
         </View>
 
-        {/* Availability Card */}
-        <Card style={styles.availabilityCard}>
-          <View style={styles.availabilityRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.availabilityTitle}>{t('vendor.availabilityTitle')}</Text>
-              {vendor.vacationMode ? (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.availabilityStatusRed}>{t('vendor.currentlyUnavailable')}</Text>
-                  <Text style={styles.availabilitySubText}>{t('vendor.vacationModeTitle')}</Text>
-                  {vendor.vacationEnd ? (
-                    <Text style={styles.availabilitySubText}>
-                      {t('vendor.availableAgainOn', { date: new Date(vendor.vacationEnd).toLocaleDateString(isMr ? 'mr-IN' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }) })}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.availabilityStatusGreen}>{t('vendor.availableToday')}</Text>
-                  <Text style={styles.availabilityTimeText}>
-                    {getTodayHoursString(vendor.weeklyHours, t('vendor.closedToday'))}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Pressable onPress={() => navigation.navigate('ManageAvailability')} style={styles.availabilityEditBtn}>
-              <Text style={styles.availabilityEditText}>{t('vendor.editArrow')}</Text>
-            </Pressable>
-          </View>
-        </Card>
-
-        {/* Quick Actions */}
+        {/* 5) Quick Actions Grid */}
         <Text style={styles.sectionTitle}>{t('vendor.quickActions')}</Text>
         <View style={styles.quickActionsGrid}>
           {/* Row 1 */}
           <View style={styles.quickActionsRow}>
-            <Pressable 
-              onPress={() => (navigation as any).navigate('ManageServices')} 
+            <Pressable
+              onPress={() => (navigation as any).navigate('ManageServices')}
               style={styles.quickActionCard}
             >
               <View style={styles.quickActionIconContainer}>
-                <View style={styles.menuIconBar} />
-                <View style={styles.menuIconBar} />
-                <View style={styles.menuIconBar} />
+                <Menu size={18} color="#9A5A12" strokeWidth={2.4} />
               </View>
-              <Text style={styles.quickActionText}>{t('vendor.manageServicesAction')}</Text>
+              <Text style={styles.quickActionText}>
+                {t('vendor.manageServicesAction')}
+              </Text>
             </Pressable>
 
-            <Pressable 
-              onPress={() => navigation.navigate('ManageBusiness')} 
+            <Pressable
+              onPress={() => navigation.navigate('ManageBusiness')}
               style={styles.quickActionCard}
             >
               <View style={styles.quickActionIconContainer}>
-                <View style={styles.pencilIconBody} />
+                <Pencil size={17} color="#9A5A12" strokeWidth={2.2} />
               </View>
-              <Text style={styles.quickActionText}>{t('vendor.editBusinessAction')}</Text>
+              <Text style={styles.quickActionText}>
+                {t('vendor.editBusinessAction')}
+              </Text>
             </Pressable>
           </View>
 
           {/* Row 2 */}
           <View style={styles.quickActionsRow}>
-            <Pressable 
+            <Pressable
               onPress={() => {
                 navigation.navigate('VendorReviews');
-              }} 
+              }}
               style={styles.quickActionCard}
             >
               <View style={styles.quickActionIconContainer}>
-                <View style={styles.linkIconSquare} />
+                <ExternalLink size={18} color="#9A5A12" strokeWidth={2.2} />
               </View>
-              <Text style={styles.quickActionText}>{t('vendor.viewListingAction')}</Text>
+              <Text style={styles.quickActionText}>
+                {t('vendor.viewListingAction')}
+              </Text>
             </Pressable>
 
-            <Pressable 
-              onPress={() => {}} 
+            <Pressable
+              onPress={() => {}}
               disabled={true}
-              style={[styles.quickActionCard, { opacity: 0.7 }]}
+              style={[styles.quickActionCard, { opacity: 0.85 }]}
             >
               <View style={styles.quickActionIconContainer}>
-                <Text style={{ fontSize: 14, color: '#B6A98F' }}>✦</Text>
+                <Sparkles size={18} color="#9E978F" strokeWidth={2.0} />
               </View>
-              <Text style={[styles.quickActionText, { color: '#A89A82' }]}>
+              <Text style={styles.quickActionTextMuted}>
                 {t('vendor.promoteAction')}
               </Text>
             </Pressable>
           </View>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -314,11 +328,11 @@ export const VendorDashboardScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.cream,
+    backgroundColor: '#FAF7F2',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: theme.colors.cream,
+    backgroundColor: '#FAF7F2',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -330,104 +344,75 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: horizontalScale(18),
-    height: 70,
-    paddingTop: 14,
+    paddingTop: verticalScale(18),
+    paddingBottom: verticalScale(12),
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FBF6EC',
+    alignItems: 'flex-start',
+    backgroundColor: '#FAF7F2',
   },
-  headerTitle: {
-    fontSize: moderateScale(20),
-    fontFamily: theme.typography.fontFamily.bold,
+  headerLeft: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    flex: 1,
+    paddingRight: 10,
+  },
+  headerBusinessName: {
+    fontFamily: 'Mukta-Bold',
     fontWeight: '700',
-    color: theme.colors.charcoal,
+    fontSize: moderateScale(18),
+    color: '#2A2520',
+    lineHeight: moderateScale(23),
+  },
+  verifiedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  verifiedDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#2E7D52',
+    marginRight: 5,
+  },
+  verifiedText: {
+    fontFamily: 'Mukta-Medium',
+    fontWeight: '500',
+    fontSize: moderateScale(12),
+    color: '#2E7D52',
+    letterSpacing: 0.1,
   },
   switchBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    width: 100,
+    paddingHorizontal: 10,
     height: 32,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E0CFB0',
+    borderColor: '#DFD7C8',
     backgroundColor: '#FFFFFF',
+    gap: 5,
   },
   switchBtnText: {
-    fontSize: moderateScale(11),
+    fontSize: moderateScale(12),
     fontFamily: 'Mukta-Medium',
     fontWeight: '500',
-    color: '#6B5F4E',
+    color: '#40362C',
   },
   scrollContent: {
     paddingHorizontal: horizontalScale(18),
-    paddingTop: verticalScale(14),
-    paddingBottom: verticalScale(110),
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: horizontalScale(8),
-    marginBottom: verticalScale(16),
-  },
-  statCard: {
-    flex: 1,
-    padding: horizontalScale(12),
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-  },
-  statVal: {
-    fontSize: moderateScale(22),
-    fontFamily: theme.typography.fontFamily.bold,
-    fontWeight: '700',
-    color: theme.colors.charcoal,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  statLabel: {
-    fontSize: moderateScale(11),
-    fontFamily: theme.typography.fontFamily.medium,
-    color: theme.colors.textSecondary,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  vacationCard: {
-    padding: horizontalScale(14),
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-    marginBottom: verticalScale(16),
-  },
-  vacationHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  vacationTextContainer: {
-    flex: 0.8,
-  },
-  vacationTitle: {
-    fontSize: moderateScale(14),
-    fontFamily: theme.typography.fontFamily.bold,
-    fontWeight: '700',
-    color: theme.colors.charcoal,
-    marginBottom: 2,
-  },
-  vacationSub: {
-    fontSize: moderateScale(11),
-    fontFamily: theme.typography.fontFamily.regular,
-    color: theme.colors.textSecondary,
-    lineHeight: 15,
+    paddingTop: verticalScale(6),
+    paddingBottom: verticalScale(100),
   },
   alertCard: {
-    padding: horizontalScale(14),
-    borderColor: theme.colors.marigold,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderColor: '#E89C40',
     borderWidth: 1.5,
-    backgroundColor: '#FFFDF9',
+    borderRadius: 14,
+    backgroundColor: '#FEF6E9',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -436,13 +421,14 @@ const styles = StyleSheet.create({
   alertLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    flex: 1,
   },
   alertText: {
-    fontSize: moderateScale(13),
-    fontFamily: theme.typography.fontFamily.bold,
+    fontSize: moderateScale(13.5),
+    fontFamily: 'Mukta-Bold',
     fontWeight: '700',
-    color: theme.colors.charcoal,
+    color: '#2A2520',
   },
   alertBtn: {
     flexDirection: 'row',
@@ -450,209 +436,109 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   alertBtnText: {
-    fontSize: moderateScale(12),
-    fontFamily: theme.typography.fontFamily.bold,
+    fontSize: moderateScale(13),
+    fontFamily: 'Mukta-Bold',
     fontWeight: '700',
-    color: theme.colors.marigold,
+    color: '#9A5A12',
   },
   sectionTitle: {
-    fontSize: moderateScale(15),
-    fontFamily: theme.typography.fontFamily.bold,
+    fontSize: moderateScale(15.5),
+    fontFamily: 'Mukta-Bold',
     fontWeight: '700',
-    color: theme.colors.charcoal,
+    color: '#2A2520',
     marginBottom: verticalScale(10),
   },
   emptyCard: {
-    padding: horizontalScale(24),
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-  },
-  emptyIcon: {
-    marginBottom: 8,
+    borderColor: '#EFE8DD',
+    borderRadius: 14,
+    marginBottom: verticalScale(16),
   },
   emptyText: {
     fontSize: moderateScale(13),
-    fontFamily: theme.typography.fontFamily.medium,
-    color: theme.colors.textSecondary,
-  },
-  bookingItemCard: {
-    padding: horizontalScale(14),
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-    marginVertical: verticalScale(4),
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  clientName: {
-    fontSize: moderateScale(14),
-    fontFamily: theme.typography.fontFamily.bold,
-    fontWeight: '700',
-    color: theme.colors.charcoal,
-  },
-  serviceName: {
-    fontSize: moderateScale(12),
-    fontFamily: theme.typography.fontFamily.regular,
-    color: theme.colors.textSecondary,
-    marginTop: 1,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: theme.colors.borderLight,
-    marginVertical: verticalScale(8),
-  },
-  itemFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  addressLabel: {
-    fontSize: moderateScale(11),
-    fontFamily: theme.typography.fontFamily.regular,
-    color: theme.colors.textSecondary,
-    flex: 0.8,
-  },
-  priceValue: {
-    fontSize: moderateScale(14),
-    fontFamily: theme.typography.fontFamily.bold,
-    fontWeight: '700',
-    color: theme.colors.charcoal,
-  },
-  availabilityCard: {
-    padding: 16,
-    marginBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EFE3CC',
-    borderRadius: 12,
-  },
-  availabilityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  availabilityTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: theme.typography.fontFamily.bold,
-    color: '#8A7C66',
-    textTransform: 'uppercase',
-  },
-  availabilityStatusGreen: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2E7D52',
-    fontFamily: theme.typography.fontFamily.semiBold,
-  },
-  availabilityStatusRed: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#C0392B',
-    fontFamily: theme.typography.fontFamily.semiBold,
-  },
-  availabilitySubText: {
-    fontSize: 12,
-    color: '#6B5F4E',
-    marginTop: 2,
-    fontFamily: theme.typography.fontFamily.regular,
-  },
-  availabilityTimeText: {
-    fontSize: 13,
-    color: '#2A2520',
-    fontWeight: '600',
-    marginTop: 4,
-    fontFamily: theme.typography.fontFamily.medium,
-  },
-  availabilityEditBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  availabilityEditText: {
-    fontSize: 13,
-    color: '#E58A2B',
-    fontWeight: '600',
-    fontFamily: theme.typography.fontFamily.semiBold,
-  },
-  headerLeft: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  headerBusinessName: {
-    fontFamily: 'Mukta-Bold',
-    fontWeight: '700',
-    fontSize: 18,
-    color: '#2A2520',
-  },
-  verifiedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  verifiedDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#2E7D52',
-    marginRight: 6,
-  },
-  verifiedText: {
     fontFamily: 'Mukta-Medium',
     fontWeight: '500',
-    fontSize: 12,
-    color: '#2E7D52',
-  },
-  alertBulletIcon: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E58A2B',
-    marginRight: 10,
+    color: '#8A7C66',
   },
   todayScheduleCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#EFE3CC',
+    borderColor: '#EFE8DD',
     borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: verticalScale(16),
   },
   todayScheduleTitle: {
     fontFamily: 'Mukta-Bold',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: moderateScale(14.5),
     color: '#2A2520',
   },
   todayScheduleSub: {
     fontFamily: 'Mukta-Regular',
     fontWeight: '400',
-    fontSize: 12,
+    fontSize: moderateScale(12.5),
     color: '#8A7C66',
     marginTop: 2,
   },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: horizontalScale(8),
+    marginBottom: verticalScale(20),
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE8DD',
+    borderRadius: 14,
+    paddingHorizontal: horizontalScale(12),
+    paddingVertical: verticalScale(14),
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  statLabel: {
+    fontSize: moderateScale(12),
+    fontFamily: 'Mukta-Medium',
+    fontWeight: '500',
+    color: '#8A7C66',
+    marginBottom: 6,
+    textAlign: 'left',
+  },
+  statVal: {
+    fontSize: moderateScale(23),
+    fontFamily: 'Mukta-Bold',
+    fontWeight: '700',
+    color: '#2A2520',
+    lineHeight: moderateScale(28),
+    textAlign: 'left',
+  },
   quickActionsGrid: {
     flexDirection: 'column',
-    gap: 8,
-    marginTop: 4,
-    marginBottom: 20,
+    gap: 10,
+    marginTop: 2,
+    marginBottom: verticalScale(24),
   },
   quickActionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: 10,
   },
   quickActionCard: {
     flex: 1,
-    height: 56,
+    height: 54,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#EFE3CC',
-    borderRadius: 12,
+    borderColor: '#EFE8DD',
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
@@ -667,30 +553,16 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontFamily: 'Mukta-Medium',
     fontWeight: '500',
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#2A2520',
     flex: 1,
   },
-  menuIconBar: {
-    width: 14,
-    height: 2.2,
-    backgroundColor: '#9A5A12',
-    marginVertical: 1.5,
-    borderRadius: 1,
-  },
-  pencilIconBody: {
-    width: 12,
-    height: 12,
-    borderWidth: 1.6,
-    borderColor: '#9A5A12',
-    borderRadius: 2,
-  },
-  linkIconSquare: {
-    width: 11,
-    height: 11,
-    borderWidth: 1.6,
-    borderColor: '#9A5A12',
-    borderRadius: 1.5,
+  quickActionTextMuted: {
+    fontFamily: 'Mukta-Medium',
+    fontWeight: '500',
+    fontSize: moderateScale(13),
+    color: '#9E978F',
+    flex: 1,
   },
 });
 

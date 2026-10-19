@@ -2,9 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthStore } from '../store/useAuthStore';
 import { RootStackParamList } from './types';
-import { View, StyleSheet } from 'react-native';
-import HomeScreen from '../screens/HomeScreen';
-import { theme } from '../constants/theme';
 
 // Import Navigators
 import ResidentTabNavigator from './ResidentTabNavigator';
@@ -24,9 +21,8 @@ import CreatePostScreen from '../features/feed/CreatePostScreen';
 import SearchResultsScreen from '../features/marketplace/SearchResultsScreen';
 import BusinessProfileScreen from '../features/marketplace/BusinessProfileScreen';
 import BookingScreen from '../features/bookings/BookingScreen';
-import PaymentGatewayScreen from '../features/bookings/PaymentGatewayScreen';
+import ConfirmBookingScreen from '../features/bookings/ConfirmBookingScreen';
 import BookingSuccessScreen from '../features/bookings/BookingSuccessScreen';
-import BookingFailedScreen from '../features/bookings/BookingFailedScreen';
 import BookingDetailScreen from '../features/bookings/BookingDetailScreen';
 import WriteReviewScreen from '../features/bookings/WriteReviewScreen';
 import NotificationsScreen from '../features/bookings/NotificationsScreen';
@@ -36,8 +32,6 @@ import HelpSupportScreen from '../features/bookings/HelpSupportScreen';
 
 import KycRegistrationScreen from '../features/vendor/KycRegistrationScreen';
 import KycStatusScreen from '../features/vendor/KycStatusScreen';
-import BookingRequestsScreen from '../features/vendor/BookingRequestsScreen';
-import ManageServicesScreen from '../features/vendor/ManageServicesScreen';
 import VendorReviewsScreen from '../features/vendor/VendorReviewsScreen';
 import BookingActionScreen from '../features/vendor/BookingActionScreen';
 import EditServiceScreen from '../features/vendor/EditServiceScreen';
@@ -75,7 +69,10 @@ export const RootNavigator: React.FC = () => {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      key={isAuthenticated ? `${userMode}-${isNewUser ? 'new' : 'main'}` : 'auth'}
+      screenOptions={{ headerShown: false }}
+    >
       {!isAuthenticated ? (
         // Auth Stack
         <>
@@ -126,12 +123,10 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="SearchResults" component={SearchResultsScreen} />
           <Stack.Screen name="BusinessProfile" component={BusinessProfileScreen} />
           <Stack.Screen name="Booking" component={BookingScreen} />
+          <Stack.Screen name="ConfirmBooking" component={ConfirmBookingScreen} />
           <Stack.Screen name="Alerts" component={NotificationsScreen} />
           
-          {/* Booking & Transaction screens */}
-          <Stack.Screen name="PaymentGateway" component={PaymentGatewayScreen} />
           <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
-          <Stack.Screen name="BookingFailed" component={BookingFailedScreen} />
           <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
           <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />

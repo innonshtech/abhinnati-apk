@@ -1,6 +1,7 @@
 import { VendorRepository } from './vendor.repository';
 import { storageService } from '@/lib/storage';
 import { prisma } from '@/lib/prisma';
+import { mapVendorForClient, resolveCategory } from '@/lib/catalog';
 
 export class VendorService {
   private vendorRepository = new VendorRepository();
@@ -38,23 +39,21 @@ export class VendorService {
       throw new Error('Aadhaar card upload failed or file data is invalid');
     }
 
+    const category = await resolveCategory(data.categoryId || data.categorySlug);
     const vendor = await this.vendorRepository.createVendor({
       userId: userId,
-      businessNameMr: data.businessNameMr,
-      businessNameEn: data.businessNameEn,
-      categorySlug: data.categorySlug,
-      categoryNameMr: data.categoryNameMr,
-      categoryNameEn: data.categoryNameEn,
-      descriptionMr: data.descriptionMr,
-      descriptionEn: data.descriptionEn,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      areaId: data.areaId,
-      kycStatus: 'PENDING_REVIEW',
+      kycStatus: 'pending',
       kycDocsUrl: JSON.stringify(kycDocsUrlMap),
-      isFullyBooked: false,
-      ratingAvg: 4.5,
-      reviewsCount: 0,
+    });
+    await prisma.business.create({
+      data: {
+        vendorId: vendor.id,
+        nameMr: data.businessNameMr || data.businessNameEn || '',
+        nameEn: data.businessNameEn || '',
+        descriptionMr: data.descriptionMr || '',
+        descriptionEn: data.descriptionEn || '',
+        categoryId: category?.id,
+      },
     });
 
     await this.vendorRepository.updateUserRole(userId, 'vendor');
@@ -66,7 +65,7 @@ export class VendorService {
     if (!vendor) {
       throw new Error('Vendor profile not found');
     }
-    return vendor;
+    return mapVendorForClient(vendor);
   }
 
   async saveService(userId: string, data: any) {
@@ -143,51 +142,43 @@ export class VendorService {
       throw new Error('Vendor profile not found');
     }
 
-    const updateData: any = {};
+    const businessUpdate: any = {};
 
-    if (data.businessNameEn !== undefined) updateData.businessNameEn = data.businessNameEn;
-    if (data.businessNameMr !== undefined) updateData.businessNameMr = data.businessNameMr;
-    if (data.descriptionEn !== undefined) updateData.descriptionEn = data.descriptionEn;
-    if (data.descriptionMr !== undefined) updateData.descriptionMr = data.descriptionMr;
-    if (data.categorySlug !== undefined) updateData.categorySlug = data.categorySlug;
-    if (data.categoryNameEn !== undefined) updateData.categoryNameEn = data.categoryNameEn;
-    if (data.categoryNameMr !== undefined) updateData.categoryNameMr = data.categoryNameMr;
-    if (data.whatsappNumber !== undefined) updateData.whatsappNumber = data.whatsappNumber;
-    if (data.email !== undefined) updateData.email = data.email;
-
-    if (data.latitude !== undefined) updateData.latitude = data.latitude;
-    if (data.longitude !== undefined) updateData.longitude = data.longitude;
-    if (data.formattedAddress !== undefined) updateData.formattedAddress = data.formattedAddress;
-    if (data.city !== undefined) updateData.city = data.city;
-    if (data.state !== undefined) updateData.state = data.state;
-    if (data.pincode !== undefined) updateData.pincode = data.pincode;
-    if (data.placeId !== undefined) updateData.placeId = data.placeId;
-    if (data.areaId !== undefined) updateData.areaId = data.areaId;
+    if (data.businessNameEn !== undefined) businessUpdate.nameEn = data.businessNameEn;
+    if (data.businessNameMr !== undefined) businessUpdate.nameMr = data.businessNameMr;
+    if (data.descriptionEn !== undefined) businessUpdate.descriptionEn = data.descriptionEn;
+    if (data.descriptionMr !== undefined) businessUpdate.descriptionMr = data.descriptionMr;
+    if (data.whatsappNumber !== undefined) businessUpdate.whatsappNumber = data.whatsappNumber;
+    if (data.email !== undefined) businessUpdate.email = data.email;
+    if (data.categorySlug || data.categoryId) {
+      const category = await resolveCategory(data.categoryId || data.categorySlug);
+      if (category) businessUpdate.categoryId = category.id;
+    }
 
     if (data.coverPhoto && data.coverPhoto.fileData) {
       const ext = data.coverPhoto.mimeType === 'image/png' ? 'png' : 'jpg';
       const filename = `vendor_${vendor.id}_cover_${Date.now()}.${ext}`;
-      updateData.coverPhotoUrl = await storageService.uploadFile(
+      businessUpdate.coverPhotoUrl = await storageService.uploadFile(
         'vendor-assets',
         filename,
         data.coverPhoto.fileData,
         data.coverPhoto.mimeType
       );
     } else if (data.coverPhotoUrl !== undefined) {
-      updateData.coverPhotoUrl = data.coverPhotoUrl;
+      businessUpdate.coverPhotoUrl = data.coverPhotoUrl;
     }
 
     if (data.logo && data.logo.fileData) {
       const ext = data.logo.mimeType === 'image/png' ? 'png' : 'jpg';
       const filename = `vendor_${vendor.id}_logo_${Date.now()}.${ext}`;
-      updateData.logoUrl = await storageService.uploadFile(
+      businessUpdate.logoUrl = await storageService.uploadFile(
         'vendor-assets',
         filename,
         data.logo.fileData,
         data.logo.mimeType
       );
     } else if (data.logoUrl !== undefined) {
-      updateData.logoUrl = data.logoUrl;
+      businessUpdate.logoUrl = data.logoUrl;
     }
 
     if (data.gallery) {
@@ -210,12 +201,52 @@ export class VendorService {
           galleryUrlsList.push(item.url);
         }
       }
-      updateData.galleryUrls = JSON.stringify(galleryUrlsList);
+      businessUpdate.galleryUrls = JSON.stringify(galleryUrlsList);
     }
 
-    updateData.firstApprovedLogin = false;
+    if (vendor.business) {
+      if (Object.keys(businessUpdate).length > 0) {
+        await prisma.business.update({
+          where: { id: vendor.business.id },
+          data: businessUpdate,
+        });
+      }
 
-    return this.vendorRepository.updateVendor(userId, updateData);
+      const hasLocationUpdate =
+        data.latitude !== undefined ||
+        data.longitude !== undefined ||
+        data.formattedAddress !== undefined ||
+        data.city !== undefined ||
+        data.state !== undefined ||
+        data.pincode !== undefined ||
+        data.areaId !== undefined;
+
+      if (hasLocationUpdate) {
+        const existingLoc = await prisma.location.findFirst({
+          where: { businessId: vendor.business.id, deletedAt: null },
+        });
+        const locationData = {
+          latitude: Number(data.latitude ?? existingLoc?.latitude ?? 0),
+          longitude: Number(data.longitude ?? existingLoc?.longitude ?? 0),
+          formattedAddress: data.formattedAddress ?? existingLoc?.formattedAddress ?? '',
+          city: data.city ?? existingLoc?.city ?? '',
+          state: data.state ?? existingLoc?.state ?? '',
+          pincode: data.pincode ?? existingLoc?.pincode ?? '',
+          area: data.areaId ?? data.area ?? existingLoc?.area ?? '',
+        };
+        if (existingLoc) {
+          await prisma.location.update({ where: { id: existingLoc.id }, data: locationData });
+        } else {
+          await prisma.location.create({
+            data: { businessId: vendor.business.id, ...locationData },
+          });
+        }
+      }
+    }
+
+    await this.vendorRepository.updateVendor(userId, { firstApprovedLogin: false });
+    const refreshed = await this.vendorRepository.findVendorByUserId(userId);
+    return refreshed ? mapVendorForClient(refreshed) : null;
   }
 
   async skipFirstTimeSetup(userId: string) {
@@ -324,7 +355,7 @@ export class VendorService {
       }
     });
 
-    const bookedTimes = activeBookings.map(b => b.bookingTime.trim());
+    const bookedTimes = activeBookings.map((b: any) => b.bookingTime.trim());
 
     return defaultSlots.map(slot => {
       const slotMin = parseTimeToMinutes(slot.time);
@@ -342,7 +373,7 @@ export class VendorService {
         return { ...slot, available: false };
       }
 
-      const isBooked = bookedTimes.some(bTime => {
+      const isBooked = bookedTimes.some((bTime: string) => {
         const cleanB = bTime.replace('AM', '').replace('PM', '').trim();
         const cleanSlot = slot.time.trim();
         return cleanB === cleanSlot || bTime === slot.time;

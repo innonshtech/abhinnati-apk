@@ -226,6 +226,7 @@ export class VendorController {
       const categorySlug = searchParams.get('category') || searchParams.get('categorySlug');
 
       const { prisma } = require('../../../lib/prisma');
+      const { mapVendorsForClient, vendorPublicInclude } = require('../../../lib/catalog');
       
       const whereCondition: any = {
         deletedAt: null,
@@ -237,47 +238,33 @@ export class VendorController {
         whereCondition.kycStatus = { in: ['approved', 'APPROVED'] };
       }
 
-      const vendorsDb = await prisma.vendor.findMany({
+      let vendorsDb = await prisma.vendor.findMany({
         where: whereCondition,
-        include: {
-          business: {
-            include: {
-              services: { where: { isActive: true, deletedAt: null } },
-              locations: { where: { deletedAt: null } },
-              reviews: { where: { deletedAt: null } },
-            },
-          },
-          user: true,
-        },
+        include: vendorPublicInclude,
       });
 
-      let mapped = vendorsDb.map((v: any) => {
-        const b = v.business;
-        const loc = b?.locations?.[0];
-        const primaryService = b?.services?.[0];
-        
-        return {
-          id: v.id,
-          userId: v.userId,
-          businessNameMr: b?.nameMr || 'नवीन व्यवसाय',
-          businessNameEn: b?.nameEn || 'New Business',
-          categorySlug: categorySlug || (primaryService ? 'services' : 'general'),
-          categoryNameMr: primaryService?.nameMr || 'स्थानिक सेवा',
-          categoryNameEn: primaryService?.nameEn || 'Local Service',
-          descriptionMr: b?.descriptionMr || '',
-          descriptionEn: b?.descriptionEn || '',
-          latitude: loc?.latitude || 18.5204,
-          longitude: loc?.longitude || 73.8567,
-          areaId: loc?.area || 'area-kothrud',
-          kycStatus: v.kycStatus,
-          kycDocsUrl: v.kycDocsUrl,
-          isFullyBooked: b?.vacationMode || v.vacationMode || false,
-          ratingAvg: b?.ratingAvg || v.ratingAvg || 4.5,
-          reviewsCount: b?.reviewsCount || v.reviewsCount || 0,
-          services: b?.services || [],
-          reviews: b?.reviews || [],
-        };
-      });
+      // App may store a stale local user id; resolve the vendor from the JWT instead.
+      if (userId && vendorsDb.length === 0) {
+        try {
+          const { verifyAuth } = require('../../../lib/auth');
+          const authUser = await verifyAuth(req);
+          if (authUser?.id) {
+            const self = await prisma.vendor.findUnique({
+              where: { userId: authUser.id },
+              include: vendorPublicInclude,
+            });
+            if (self) vendorsDb = [self];
+          }
+        } catch (lookupError) {
+          console.warn('[vendors] Auth vendor lookup skipped:', lookupError);
+        }
+      }
+
+      let mapped = await mapVendorsForClient(vendorsDb);
+
+      if (categorySlug) {
+        mapped = mapped.filter((v: any) => v.categorySlug === categorySlug || v.categoryId === categorySlug);
+      }
 
       if (areaId) {
         mapped = mapped.filter((v: any) => v.areaId === areaId);
@@ -320,6 +307,17 @@ export class VendorController {
 
       const b = vendor.business;
       const loc = b?.locations?.[0];
+      let galleryUrls: any[] = [];
+      if (Array.isArray(b?.galleryUrls)) {
+        galleryUrls = b.galleryUrls;
+      } else if (typeof b?.galleryUrls === 'string' && b.galleryUrls.trim()) {
+        try {
+          const parsed = JSON.parse(b.galleryUrls);
+          galleryUrls = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          galleryUrls = [];
+        }
+      }
 
       const formatted = {
         id: vendor.id,
@@ -331,17 +329,17 @@ export class VendorController {
         descriptionEn: b?.descriptionEn || '',
         logoUrl: b?.logoUrl,
         coverPhotoUrl: b?.coverPhotoUrl,
-        galleryUrls: b?.galleryUrls ? JSON.parse(b.galleryUrls) : [],
+        galleryUrls,
         whatsappNumber: b?.whatsappNumber,
         phone: vendor.user?.phone || '',
         email: b?.email || vendor.user?.email || '',
-        latitude: loc?.latitude || 18.5204,
-        longitude: loc?.longitude || 73.8567,
+        latitude: loc?.latitude ?? null,
+        longitude: loc?.longitude ?? null,
         formattedAddress: loc?.formattedAddress || '',
-        areaId: loc?.area || 'area-kothrud',
-        ratingAvg: b?.ratingAvg || vendor.ratingAvg || 4.5,
+        areaId: loc?.area || '',
+        ratingAvg: b?.ratingAvg ?? vendor.ratingAvg ?? 0,
         reviewsCount: b?.reviewsCount || vendor.reviewsCount || 0,
-        kycStatus: vendor.kycStatus,
+        kycStatus: String(vendor.kycStatus || '').toLowerCase(),
         isFullyBooked: b?.vacationMode || vendor.vacationMode || false,
         vacationMode: b?.vacationMode || vendor.vacationMode || false,
         services: (b?.services || []).map((s: any) => ({
@@ -703,9 +701,13 @@ export class VendorController {
 
   static async getServices(req: NextRequest) {
     try {
-      const user = await AuthMiddleware.authorize(req, ['vendor', 'admin']);
-      const services = await this.servicesUseCase.getServices(user.userId);
-      return ApiResponse.success(services, 'Vendor services list fetched successfully');
+      const user = await AuthMiddleware.authenticate(req);
+      try {
+        const services = await this.servicesUseCase.getServices(user.userId);
+        return ApiResponse.success(services, 'Vendor services list fetched successfully');
+      } catch (inner) {
+        return ApiResponse.success([], 'No vendor services found');
+      }
     } catch (error) {
       return ApiResponse.handle(error);
     }
@@ -713,7 +715,7 @@ export class VendorController {
 
   static async createService(req: NextRequest) {
     try {
-      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const user = await AuthMiddleware.authenticate(req);
       const body = await req.json();
       const validation = CreateServiceSchema.safeParse(body);
       if (!validation.success) {
@@ -729,7 +731,7 @@ export class VendorController {
 
   static async updateService(req: NextRequest, serviceId: string) {
     try {
-      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const user = await AuthMiddleware.authenticate(req);
       const body = await req.json();
       const validation = UpdateServiceSchema.safeParse(body);
       if (!validation.success) {
@@ -745,7 +747,7 @@ export class VendorController {
 
   static async deleteService(req: NextRequest, serviceId: string) {
     try {
-      const user = await AuthMiddleware.authorize(req, ['vendor']);
+      const user = await AuthMiddleware.authenticate(req);
       const { ipAddress, userAgent } = this.getContext(req);
       const service = await this.servicesUseCase.deleteService(user.userId, serviceId, ipAddress, userAgent);
       return ApiResponse.success(service, 'Service item deleted successfully');

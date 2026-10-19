@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  BackHandler
+  BackHandler,
+  Linking,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -43,11 +44,14 @@ export const BookingDetailScreen: React.FC = () => {
   const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
-  const { bookingId } = route.params;
-  const { preferredLanguage, user } = useAuthStore();
+  const bookingId = route.params?.bookingId;
+  const initialBooking = route.params?.booking;
+  const { preferredLanguage } = useAuthStore();
 
-  const [booking, setBooking] = useState<Booking | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState<Booking | null>(
+    initialBooking?.id ? (initialBooking as Booking) : null
+  );
+  const [loading, setLoading] = useState(!initialBooking?.id);
   const [updating, setUpdating] = useState(false);
   const [userRating, setUserRating] = useState<number>(0);
   const [canModify, setCanModify] = useState(true);
@@ -109,8 +113,14 @@ export const BookingDetailScreen: React.FC = () => {
     service: t('bookings.service'),
     amount: t('bookings.amount'),
     when: t('bookings.when'),
-    payment: t('bookings.payment'),
+    listedPrice: t('bookings.listedPrice'),
+    vendorContact: t('bookings.vendorContact'),
     status: t('bookings.statusTitle'),
+    pendingBanner: t('bookings.pendingApprovalBanner'),
+    declinedBanner: t('bookings.declinedBanner'),
+    approvedBanner: t('bookings.approvedBanner'),
+    chooseAnother: t('bookings.chooseAnother'),
+    callVendor: t('bookings.callVendor'),
     bookingId: t('bookings.bookingId', { id: '' }).replace(': #', '').trim(),
     reschedule: t('bookings.reschedule'),
     cancel: t('bookings.cancelBooking'),
@@ -118,7 +128,11 @@ export const BookingDetailScreen: React.FC = () => {
     writeReview: t('bookings.writeReview'),
     infoText: t('bookings.infoText'),
     infoTextExpired: t('bookings.infoTextExpired'),
-    ratingTitle: t('bookings.ratingTitle', { vendor: booking?.vendorName || "Aai's Bakery" }),
+    ratingTitle: t('bookings.ratingTitle', {
+      vendor: isMr
+        ? (booking?.vendorNameMr || booking?.vendorName || '')
+        : (booking?.vendorNameEn || booking?.vendorName || ''),
+    }),
     ratingSubtitle: t('bookings.ratingSubtitle'),
     cancelConfirmTitle: t('bookings.cancelConfirmTitle'),
     cancelConfirmMsg: t('bookings.cancelConfirmMsg'),
@@ -132,11 +146,14 @@ export const BookingDetailScreen: React.FC = () => {
   };
 
   const fetchBookingDetail = async () => {
+    if (!bookingId) {
+      setLoading(false);
+      return;
+    }
     try {
-      setLoading(true);
-      const bookings = await api.getBookings(user?.id);
-      const match = bookings.find((b: any) => b.id === bookingId);
-      if (match) {
+      if (!initialBooking?.id) setLoading(true);
+      const match = await api.getBooking(bookingId);
+      if (match?.id) {
         setBooking(match);
       }
     } catch (err) {
@@ -190,12 +207,6 @@ export const BookingDetailScreen: React.FC = () => {
     }
   };
 
-  const getPaymentLabel = (b: Booking) => {
-    const statusText = b.paymentStatus === 'paid' ? (isMr ? 'भरलेले' : 'Paid') : (isMr ? 'प्रलंबित' : 'Pending');
-    const methodText = b.paymentMethod === 'upi' ? 'UPI' : b.paymentMethod === 'cod' ? 'COD' : b.paymentMethod.toUpperCase();
-    return `${statusText} · ${methodText}`;
-  };
-
   const formatBookingDate = (dateStr: string, timeStr: string) => {
     try {
       const date = new Date(dateStr);
@@ -219,13 +230,20 @@ export const BookingDetailScreen: React.FC = () => {
   if (!booking) {
     return (
       <SafeAreaView style={styles.loadingContainer} edges={['top', 'left', 'right']}>
-        <Text style={styles.errorText}>बुकिंग आढळली नाही!</Text>
+        <Text style={styles.errorText}>{isMr ? 'बुकिंग आढळली नाही!' : 'Booking not found'}</Text>
       </SafeAreaView>
     );
   }
 
-  const isUpcoming = booking.status === 'pending' || booking.status === 'accepted';
+  const isPending = booking.status === 'pending';
+  const isAccepted = booking.status === 'accepted';
+  const isDeclined = booking.status === 'declined';
+  const isUpcoming = isPending || isAccepted;
   const isCompleted = booking.status === 'completed';
+  const vendorPhone = (booking as any).vendorPhone || (booking as any).vendorWhatsapp || booking.userPhone;
+  const vendorName = isMr
+    ? (booking.vendorNameMr || booking.vendorName)
+    : (booking.vendorNameEn || booking.vendorName);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -233,7 +251,9 @@ export const BookingDetailScreen: React.FC = () => {
       <View style={styles.header}>
         <Pressable onPress={handleBack} style={styles.backBtn} hitSlop={15} accessibilityLabel="Go back">
           <CustomChevronLeft size={20} color="#2A2520" strokeWidth={3} />
-          <Text style={styles.backText}>{booking.vendorName}</Text>
+          <Text style={styles.backText}>
+            {isMr ? (booking.vendorNameMr || booking.vendorName) : (booking.vendorNameEn || booking.vendorName)}
+          </Text>
         </Pressable>
       </View>
 
@@ -246,30 +266,37 @@ export const BookingDetailScreen: React.FC = () => {
           {/* Row 1: Service */}
           <View style={styles.row}>
             <Text style={styles.label}>{strings.service}</Text>
-            <Text style={styles.value}>{booking.serviceName}</Text>
+            <Text style={styles.value}>
+              {isMr ? (booking.serviceNameMr || booking.serviceName) : (booking.serviceNameEn || booking.serviceName)}
+            </Text>
           </View>
           <View style={styles.cardDivider} />
 
-          {/* Row 2: Amount */}
-          <View style={styles.row}>
-            <Text style={styles.label}>{strings.amount}</Text>
-            <Text style={styles.value}>₹{booking.price}</Text>
-          </View>
-          <View style={styles.cardDivider} />
+          {!!booking.price && (
+            <>
+              <View style={styles.row}>
+                <Text style={styles.label}>{strings.listedPrice}</Text>
+                <Text style={styles.value}>₹{booking.price}</Text>
+              </View>
+              <View style={styles.cardDivider} />
+            </>
+          )}
 
-          {/* Row 3: When */}
           <View style={styles.row}>
             <Text style={styles.label}>{strings.when}</Text>
             <Text style={styles.value}>{formatBookingDate(booking.bookingDate, booking.bookingTime)}</Text>
           </View>
           <View style={styles.cardDivider} />
 
-          {/* Row 4: Payment */}
-          <View style={styles.row}>
-            <Text style={styles.label}>{strings.payment}</Text>
-            <Text style={styles.value}>{getPaymentLabel(booking)}</Text>
-          </View>
-          <View style={styles.cardDivider} />
+          {isAccepted && !!vendorPhone && (
+            <>
+              <View style={styles.row}>
+                <Text style={styles.label}>{strings.vendorContact}</Text>
+                <Text style={styles.value}>{vendorPhone}</Text>
+              </View>
+              <View style={styles.cardDivider} />
+            </>
+          )}
 
           {/* Row 5: Booking Status */}
           <View style={styles.row}>
@@ -288,19 +315,32 @@ export const BookingDetailScreen: React.FC = () => {
           <View style={styles.row}>
             <Text style={styles.label}>{strings.bookingId}</Text>
             <Text style={styles.value}>
-              {booking.id.startsWith('book-') ? `#${booking.id.substring(5, 12)}` : `#${booking.id}`}
+              {String(booking.id || '').startsWith('book-')
+                ? `#${String(booking.id).substring(5, 12)}`
+                : `#${booking.id || ''}`}
             </Text>
           </View>
         </View>
 
         {/* Conditional Layout Section */}
-        {isUpcoming && (
-          /* Upcoming: Render Info Banner */
-          <View style={[styles.infoBanner, !canModify && { backgroundColor: '#F9ECE2' }]}>
-            <View style={[styles.bulletDot, !canModify && { backgroundColor: '#E58A2B' }]} />
-            <Text style={[styles.infoText, !canModify && { color: '#854F0B' }]}>
-              {canModify ? strings.infoText : strings.infoTextExpired}
-            </Text>
+        {isPending && (
+          <View style={[styles.infoBanner, { backgroundColor: '#FBE7CC' }]}>
+            <View style={[styles.bulletDot, { backgroundColor: '#E58A2B' }]} />
+            <Text style={[styles.infoText, { color: '#854F0B' }]}>{strings.pendingBanner}</Text>
+          </View>
+        )}
+
+        {isAccepted && (
+          <View style={[styles.infoBanner, { backgroundColor: '#E3F0E8' }]}>
+            <View style={[styles.bulletDot, { backgroundColor: '#2E7D52' }]} />
+            <Text style={[styles.infoText, { color: '#2E7D52' }]}>{strings.approvedBanner}</Text>
+          </View>
+        )}
+
+        {isDeclined && (
+          <View style={[styles.infoBanner, { backgroundColor: '#F9ECE2' }]}>
+            <View style={[styles.bulletDot, { backgroundColor: '#C0392B' }]} />
+            <Text style={[styles.infoText, { color: '#8A3B2B' }]}>{strings.declinedBanner}</Text>
           </View>
         )}
 
@@ -317,7 +357,13 @@ export const BookingDetailScreen: React.FC = () => {
                     key={star}
                     onPress={() => {
                       setUserRating(star);
-                      navigation.navigate('WriteReview', { bookingId: booking.id, initialRating: star, businessName: booking.vendorName });
+                      navigation.navigate('WriteReview', {
+                        bookingId: booking.id,
+                        initialRating: star,
+                        businessName: isMr
+                          ? (booking.vendorNameMr || booking.vendorName)
+                          : (booking.vendorNameEn || booking.vendorName),
+                      });
                     }}
                     style={styles.starBox}
                   >
@@ -335,21 +381,43 @@ export const BookingDetailScreen: React.FC = () => {
       </ScrollView>
 
       {/* Buttons Action Bar */}
-      {isUpcoming && (
+      {isPending && (
         <View style={styles.actionBar}>
-          <Pressable 
-            onPress={() => canModify && navigation.navigate('Booking', { vendorId: booking.vendorId })} 
-            style={[styles.btnSecondary, !canModify && { opacity: 0.5 }]}
-            disabled={!canModify}
-          >
-            <Text style={styles.btnSecondaryText}>{strings.reschedule}</Text>
-          </Pressable>
-          <Pressable 
-            onPress={() => canModify && handleCancelBooking()} 
-            style={[styles.btnSecondary, styles.borderDanger, !canModify && { opacity: 0.5 }]}
-            disabled={!canModify}
+          <Pressable
+            onPress={handleCancelBooking}
+            style={[styles.btnSecondary, styles.borderDanger]}
           >
             <Text style={[styles.btnSecondaryText, styles.textDanger]}>{strings.cancel}</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {isAccepted && (
+        <View style={styles.actionBar}>
+          {!!vendorPhone && (
+            <Pressable
+              onPress={() => Linking.openURL(`tel:${vendorPhone}`)}
+              style={styles.btnSecondary}
+            >
+              <Text style={styles.btnSecondaryText}>{strings.callVendor}</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={handleCancelBooking}
+            style={[styles.btnSecondary, styles.borderDanger]}
+          >
+            <Text style={[styles.btnSecondaryText, styles.textDanger]}>{strings.cancel}</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {isDeclined && (
+        <View style={styles.actionBar}>
+          <Pressable
+            onPress={() => (navigation as any).navigate('ResidentMain', { screen: 'Explore' })}
+            style={styles.btnPrimary}
+          >
+            <Text style={styles.btnPrimaryText}>{strings.chooseAnother}</Text>
           </Pressable>
         </View>
       )}

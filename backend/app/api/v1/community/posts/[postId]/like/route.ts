@@ -20,7 +20,7 @@ export async function POST(
     }
 
     // Perform atomic transaction to prevent concurrent race conditions
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const post = await tx.post.findUnique({
         where: { id: postId, deletedAt: null },
       });
@@ -91,7 +91,7 @@ export async function DELETE(
     }
 
     // Atomic transaction for unliking
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const post = await tx.post.findUnique({
         where: { id: postId, deletedAt: null },
       });

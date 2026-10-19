@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { AuthMiddleware } from '../../../../../src/presentation/middleware/auth.middleware';
 import { verifyAuth } from '../../../../../lib/auth';
 import { prisma } from '../../../../../lib/prisma';
+import { resolveCategory } from '../../../../../lib/catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,64 +86,99 @@ export async function POST(req: Request) {
       where: { vendorId: vendor.id },
     });
 
-    const bNameEn = body.businessNameEn || 'New Business';
+    const bNameEn = body.businessNameEn || '';
     const bNameMr = body.businessNameMr || bNameEn;
     const descEn = body.descriptionEn || '';
     const descMr = body.descriptionMr || descEn;
-
-    if (!business) {
-      business = await prisma.business.create({
-        data: {
-          vendorId: vendor.id,
-          nameMr: bNameMr,
-          nameEn: bNameEn,
-          descriptionMr: descMr,
-          descriptionEn: descEn,
-          whatsappNumber: user.phone || userPhone || '',
-          email: body.email || null,
-          serviceRadius: body.serviceRadius || '5 km',
-        },
-      });
-    } else {
-      business = await prisma.business.update({
-        where: { id: business.id },
-        data: {
-          nameMr: bNameMr,
-          nameEn: bNameEn,
-          descriptionMr: descMr,
-          descriptionEn: descEn,
-        },
-      });
+    let category: { id: string } | null = null;
+    try {
+      category = await resolveCategory(body.categoryId || body.categorySlug);
+    } catch (error: any) {
+      console.warn('[vendor/onboard] Category lookup skipped:', error?.message);
     }
 
-    // 5. Attach Location if coordinates provided
-    if (body.latitude !== undefined && body.longitude !== undefined) {
-      const existingLoc = await prisma.location.findFirst({
-        where: { businessId: business.id },
-      });
+    const businessPayload: any = {
+      nameMr: bNameMr || bNameEn || 'New Business',
+      nameEn: bNameEn || bNameMr || 'New Business',
+      descriptionMr: descMr,
+      descriptionEn: descEn,
+      whatsappNumber: user.phone || userPhone || '',
+      email: body.email || null,
+      serviceRadius: body.serviceRadius || '5 km',
+    };
+    if (category?.id) {
+      businessPayload.categoryId = category.id;
+    }
 
-      if (existingLoc) {
-        await prisma.location.update({
-          where: { id: existingLoc.id },
-          data: {
-            latitude: Number(body.latitude),
-            longitude: Number(body.longitude),
-            area: body.areaId || body.area || existingLoc.area,
-          },
+    const saveBusiness = async (payload: any, isCreate: boolean) => {
+      try {
+        if (isCreate) {
+          return await prisma.business.create({
+            data: { vendorId: vendor.id, ...payload },
+          });
+        }
+        return await prisma.business.update({
+          where: { id: business!.id },
+          data: payload,
         });
-      } else {
-        await prisma.location.create({
-          data: {
-            businessId: business.id,
-            latitude: Number(body.latitude),
-            longitude: Number(body.longitude),
-            formattedAddress: body.formattedAddress || `${bNameEn}, ${body.areaId || 'Pune'}`,
-            city: body.city || 'Pune',
-            state: body.state || 'Maharashtra',
-            pincode: body.pincode || '411038',
-            area: body.areaId || body.area || 'Ravet',
-          },
+      } catch (error: any) {
+        if (payload.categoryId) {
+          const { categoryId: _ignored, ...withoutCategory } = payload;
+          console.warn('[vendor/onboard] Retrying business save without categoryId:', error?.message);
+          if (isCreate) {
+            return await prisma.business.create({
+              data: { vendorId: vendor.id, ...withoutCategory },
+            });
+          }
+          return await prisma.business.update({
+            where: { id: business!.id },
+            data: withoutCategory,
+          });
+        }
+        throw error;
+      }
+    };
+
+    if (!business) {
+      business = await saveBusiness(businessPayload, true);
+    } else {
+      business = await saveBusiness(businessPayload, false);
+    }
+
+    // 5. Attach Location if valid coordinates were provided
+    const latitude = Number(body.latitude);
+    const longitude = Number(body.longitude);
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      try {
+        const existingLoc = await prisma.location.findFirst({
+          where: { businessId: business.id },
         });
+
+        const locationData = {
+          latitude,
+          longitude,
+          formattedAddress: body.formattedAddress || bNameEn || '',
+          city: body.city || '',
+          state: body.state || '',
+          pincode: body.pincode || '',
+          area: body.areaId || body.area || '',
+        };
+
+        if (existingLoc) {
+          await prisma.location.update({
+            where: { id: existingLoc.id },
+            data: locationData,
+          });
+        } else {
+          await prisma.location.create({
+            data: {
+              businessId: business.id,
+              ...locationData,
+            },
+          });
+        }
+      } catch (error: any) {
+        console.warn('[vendor/onboard] Location save skipped:', error?.message);
       }
     }
 

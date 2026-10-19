@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, TextInput, Modal, FlatList, Alert, BackHandler } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, TextInput, Modal, Alert, BackHandler } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -11,13 +11,27 @@ import { RootStackParamList } from '../../navigation/types';
 import { DocumentUploadCard } from '../../components/vendor/DocumentUploadCard';
 import { UploadBottomSheet } from '../../components/vendor/UploadBottomSheet';
 import { fileUploadService, KYCFile } from '../../services/fileUploadService';
+import { mockDb } from '../../api/mockDb';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
+
+interface CategoryItem {
+  id?: string;
+  slug: string;
+  nameEn: string;
+  nameMr: string;
+  label: string;
+  requireFssai: boolean;
+}
+
+const emptyCategory: CategoryItem = { slug: '', nameEn: '', nameMr: '', label: '', requireFssai: false };
+
+type AreaOption = { id: string; name: string; latitude?: number; longitude?: number };
 
 export const KycRegistrationScreen: React.FC = () => {
   const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
-  const { user, preferredLanguage } = useAuthStore();
+  const { user, preferredLanguage, activeArea } = useAuthStore();
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -36,9 +50,13 @@ export const KycRegistrationScreen: React.FC = () => {
     return () => sub.remove();
   }, [navigation]);
 
-  const [bizName, setBizName] = useState("Aai's Bakery");
-  const [selectedCat, setSelectedCat] = useState("Bakery");
-  const [selectedArea, setSelectedArea] = useState("Bandra West");
+  const [bizName, setBizName] = useState('');
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [selectedCatObj, setSelectedCatObj] = useState<CategoryItem>(emptyCategory);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [areas, setAreas] = useState<AreaOption[]>([]);
+  const [selectedArea, setSelectedArea] = useState<AreaOption | null>(null);
+  const [loadingAreas, setLoadingAreas] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [showCatModal, setShowCatModal] = useState(false);
@@ -68,23 +86,92 @@ export const KycRegistrationScreen: React.FC = () => {
     successMsg: t('vendor.registrationSuccess'),
   };
 
-  const categories = [
-    { label: 'Bakery', slug: 'food', requireFssai: true },
-    { label: 'Home Cooked Tiffin', slug: 'food', requireFssai: true },
-    { label: 'Plumbing & Masonry', slug: 'plumbing', requireFssai: false },
-    { label: 'Electrical Works', slug: 'electric', requireFssai: false },
-    { label: 'Home Cleaning', slug: 'cleaning', requireFssai: false },
-    { label: 'Legal Advice', slug: 'legal', requireFssai: false }
-  ];
+  // Fetch live categories from backend/admin API
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveCategories = async () => {
+      try {
+        setLoadingCategories(true);
+        const data = await api.getCategories();
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          const mapped: CategoryItem[] = data.map((c: any) => {
+            const nameEn = c.nameEn || c.name_en || '';
+            const nameMr = c.nameMr || c.name_mr || nameEn;
+            const slug = c.slug || 'general';
+            return {
+              id: c.id || slug,
+              label: nameEn,
+              nameEn,
+              nameMr,
+              slug,
+              requireFssai: !!(c.requiresFssai ?? c.requireFssai),
+            };
+          });
+          setCategories(mapped);
+          setSelectedCatObj(prev => {
+            const found = mapped.find(item => item.slug === prev?.slug);
+            return found || mapped[0];
+          });
+        }
+      } catch (err) {
+        console.warn('[KycRegistrationScreen] Failed to load live categories:', err);
+      } finally {
+        if (isMounted) setLoadingCategories(false);
+      }
+    };
 
-  const areas = [
-    { id: 'area-bandra', name: 'Bandra West' },
-    { id: 'area-bandra-east', name: 'Bandra East' },
-    { id: 'area-khar', name: 'Khar' },
-    { id: 'area-santacruz', name: 'Santacruz' },
-    { id: 'area-kothrud', name: 'Kothrud (Pune)' },
-    { id: 'area-ravet', name: 'Ravet (Pune)' }
-  ];
+    fetchLiveCategories();
+
+    const mapArea = (area: any): AreaOption => ({
+      id: String(area.id || area.name_en || area.nameEn || ''),
+      name:
+        preferredLanguage === 'mr'
+          ? (area.name_mr || area.nameMr || area.name_en || area.nameEn || area.name || '')
+          : (area.name_en || area.nameEn || area.name_mr || area.nameMr || area.name || ''),
+      latitude: area.latitude,
+      longitude: area.longitude,
+    });
+
+    const loadAreas = async () => {
+      setLoadingAreas(true);
+      let mapped: AreaOption[] = [];
+      try {
+        const data = await api.getAreas();
+        if (Array.isArray(data) && data.length > 0) {
+          mapped = data.map(mapArea).filter((area) => area.id && area.name);
+        }
+      } catch (err) {
+        console.warn('[KycRegistrationScreen] Failed to load live areas:', err);
+      }
+
+      if (mapped.length === 0) {
+        try {
+          const fallback = await mockDb.getAreas();
+          mapped = (fallback || []).map(mapArea).filter((area) => area.id && area.name);
+        } catch (_) {}
+      }
+
+      if (activeArea?.id && !mapped.some((area) => area.id === activeArea.id)) {
+        mapped.unshift({
+          id: activeArea.id,
+          name: preferredLanguage === 'mr' ? (activeArea.name_mr || activeArea.name_en) : (activeArea.name_en || activeArea.name_mr),
+          latitude: activeArea.latitude,
+          longitude: activeArea.longitude,
+        });
+      }
+
+      if (!isMounted) return;
+      setAreas(mapped);
+      setSelectedArea((prev) => {
+        if (prev && mapped.some((area) => area.id === prev.id)) return prev;
+        return mapped[0] || null;
+      });
+      setLoadingAreas(false);
+    };
+
+    loadAreas();
+    return () => { isMounted = false; };
+  }, [preferredLanguage, activeArea]);
 
   const handlePressUpload = (docType: string) => {
     setActiveUploadType(docType);
@@ -190,11 +277,21 @@ export const KycRegistrationScreen: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!bizName.trim()) {
-      Alert.alert('Validation Error', 'Please enter a business name.');
+      Alert.alert('Validation Error', isMr ? 'कृपया व्यवसाय नाव टाका.' : 'Please enter a business name.');
       return;
     }
-
-    // Aadhaar Card upload check removed as requested
+    if (!selectedCatObj?.slug) {
+      Alert.alert('Validation Error', isMr ? 'कृपया श्रेणी निवडा.' : 'Please select a category.');
+      return;
+    }
+    if (!selectedArea?.id && !areas[0]?.id) {
+      Alert.alert('Validation Error', isMr ? 'कृपया परिसर निवडा.' : 'Please select an area.');
+      return;
+    }
+    if (!user) {
+      Alert.alert('Validation Error', isMr ? 'कृपया पुन्हा लॉगिन करा.' : 'Please log in again to register.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -221,38 +318,42 @@ export const KycRegistrationScreen: React.FC = () => {
           };
         }
 
-        const areaObj = areas.find(a => a.name === selectedArea);
-        const selectedAreaId = areaObj?.id || 'area-bandra';
+        const areaObj = selectedArea || areas[0];
+        const selectedAreaId = areaObj?.id || '';
 
         await api.registerVendor({
           userId: user.id,
-          businessNameMr: isMr ? bizName : 'आयझ बेकरी',
+          businessNameMr: isMr ? bizName : (selectedCatObj.nameMr || bizName),
           businessNameEn: bizName,
-          categorySlug: currentCatObj?.slug || 'food',
-          categoryNameMr: isMr ? 'बेकरी' : 'Bakery',
-          categoryNameEn: selectedCat,
-          descriptionMr: 'ताज्या बेकरी वस्तू.',
-          descriptionEn: "Aai's Bakery is a home-based bakery in Bandra West, known for customized cakes and bread.",
+          categorySlug: selectedCatObj.slug,
+          categoryNameMr: selectedCatObj.nameMr,
+          categoryNameEn: selectedCatObj.nameEn,
+          descriptionMr: isMr ? 'स्थानिक व्यवसाय सेवा.' : `${bizName} - स्थानिक व्यवसाय.`,
+          descriptionEn: `${bizName} provides trusted local services.`,
           kycDocsUrl: JSON.stringify(uploadedDocuments), // Store structured uploaded files payload
           kycDocs, // Pass structured documents for Supabase upload on the backend
-          latitude: 19.0605,
-          longitude: 72.8290,
+          latitude: Number.isFinite(Number(areaObj?.latitude)) ? Number(areaObj?.latitude) : undefined,
+          longitude: Number.isFinite(Number(areaObj?.longitude)) ? Number(areaObj?.longitude) : undefined,
           areaId: selectedAreaId,
+          area: areaObj?.name || '',
+          formattedAddress: areaObj?.name || '',
+          city: '',
           services: [],
         });
       }
       
       Alert.alert(strings.successMsg);
       navigation.replace('KycStatus');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      Alert.alert('Upload Failed', 'Failed to register business. Please try again.');
+      Alert.alert(
+        isMr ? 'नोंदणी अयशस्वी' : 'Registration failed',
+        err?.message || (isMr ? 'व्यवसाय नोंदणी करता आली नाही. पुन्हा प्रयत्न करा.' : 'Failed to register business. Please try again.')
+      );
     } finally {
       setLoading(false);
     }
   };
-
-  const currentCatObj = categories.find(c => c.label === selectedCat);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -282,7 +383,9 @@ export const KycRegistrationScreen: React.FC = () => {
         {/* Category Dropdown Selector */}
         <Text style={[styles.fieldLabel, styles.marginField]}>{strings.categoryLabel}</Text>
         <Pressable onPress={() => setShowCatModal(true)} style={styles.dropdownTrigger}>
-          <Text style={styles.dropdownText}>{selectedCat}</Text>
+          <Text style={styles.dropdownText}>
+            {selectedCatObj ? (isMr ? selectedCatObj.nameMr : selectedCatObj.nameEn) : (isMr ? 'श्रेणी निवडा' : 'Select Category')}
+          </Text>
           <Svg width={10} height={5} viewBox="0 0 10 5">
             <Path d="M1 1l4 3 4-3" stroke="#8A7C66" strokeWidth={1.8} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
@@ -291,7 +394,9 @@ export const KycRegistrationScreen: React.FC = () => {
         {/* Area Dropdown Selector */}
         <Text style={[styles.fieldLabel, styles.marginField]}>{strings.areaLabel}</Text>
         <Pressable onPress={() => setShowAreaModal(true)} style={styles.dropdownTrigger}>
-          <Text style={styles.dropdownText}>{selectedArea}</Text>
+          <Text style={[styles.dropdownText, !selectedArea?.name && { color: '#A89A82' }]}>
+            {selectedArea?.name || (isMr ? 'परिसर निवडा' : 'Select Area')}
+          </Text>
           <Svg width={10} height={5} viewBox="0 0 10 5">
             <Path d="M1 1l4 3 4-3" stroke="#8A7C66" strokeWidth={1.8} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
@@ -338,56 +443,63 @@ export const KycRegistrationScreen: React.FC = () => {
 
       {/* Category Selection Modal */}
       <Modal visible={showCatModal} transparent animationType="fade" onRequestClose={() => setShowCatModal(false)}>
-        <View style={styles.dropdownBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCatModal(false)} />
-          <View style={styles.dropdownModalCard}>
-            <Text style={styles.dropdownModalTitle}>Select Category</Text>
-            <FlatList
-              data={categories}
-              keyExtractor={(item) => item.label}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => {
-                    setSelectedCat(item.label);
-                    setShowCatModal(false);
-                    // Clear FSSAI if category doesn't require it
-                    if (!item.requireFssai) {
-                      handleRemoveFile('fssai');
-                    }
-                  }}
-                  style={styles.dropdownItem}
-                >
-                  <Text style={styles.dropdownItemText}>{item.label}</Text>
-                </Pressable>
-              )}
-            />
-          </View>
-        </View>
+        <Pressable style={styles.dropdownBackdrop} onPress={() => setShowCatModal(false)}>
+          <Pressable style={styles.dropdownModalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.dropdownModalTitle}>{isMr ? 'श्रेणी निवडा' : 'Select Category'}</Text>
+            {loadingCategories ? (
+              <ActivityIndicator size="small" color="#E8642A" style={{ marginVertical: 20 }} />
+            ) : (
+              <ScrollView style={styles.dropdownList} keyboardShouldPersistTaps="handled">
+                {categories.map((item) => (
+                  <Pressable
+                    key={item.id || item.slug}
+                    onPress={() => {
+                      setSelectedCatObj(item);
+                      setShowCatModal(false);
+                      if (!item.requireFssai) {
+                        handleRemoveFile('fssai');
+                      }
+                    }}
+                    style={styles.dropdownItem}
+                  >
+                    <Text style={styles.dropdownItemText}>{isMr ? item.nameMr : item.nameEn}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Area Selection Modal */}
       <Modal visible={showAreaModal} transparent animationType="fade" onRequestClose={() => setShowAreaModal(false)}>
-        <View style={styles.dropdownBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAreaModal(false)} />
-          <View style={styles.dropdownModalCard}>
-            <Text style={styles.dropdownModalTitle}>Select Area</Text>
-            <FlatList
-              data={areas}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => {
-                    setSelectedArea(item.name);
-                    setShowAreaModal(false);
-                  }}
-                  style={styles.dropdownItem}
-                >
-                  <Text style={styles.dropdownItemText}>{item.name}</Text>
-                </Pressable>
-              )}
-            />
-          </View>
-        </View>
+        <Pressable style={styles.dropdownBackdrop} onPress={() => setShowAreaModal(false)}>
+          <Pressable style={styles.dropdownModalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.dropdownModalTitle}>{isMr ? 'परिसर निवडा' : 'Select Area'}</Text>
+            {loadingAreas ? (
+              <ActivityIndicator size="small" color="#E8642A" style={{ marginVertical: 20 }} />
+            ) : areas.length === 0 ? (
+              <Text style={styles.formatHelperText}>
+                {isMr ? 'सध्या कोणताही परिसर उपलब्ध नाही.' : 'No areas available yet.'}
+              </Text>
+            ) : (
+              <ScrollView style={styles.dropdownList} keyboardShouldPersistTaps="handled">
+                {areas.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => {
+                      setSelectedArea(item);
+                      setShowAreaModal(false);
+                    }}
+                    style={styles.dropdownItem}
+                  >
+                    <Text style={styles.dropdownItemText}>{item.name}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -527,7 +639,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
-    elevation: 5,
+    elevation: 12,
+    zIndex: 2,
+  },
+  dropdownList: {
+    maxHeight: 320,
   },
   dropdownModalTitle: {
     fontSize: 16,

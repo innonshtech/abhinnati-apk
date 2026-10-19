@@ -8,19 +8,13 @@ import { api } from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import { theme } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/types';
+import { horizontalScale, verticalScale, moderateScale } from '../../hooks/useScale';
 import { UploadBottomSheet } from '../../components/vendor/UploadBottomSheet';
 import { KYCFile } from '../../services/fileUploadService';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 type TabType = 'info' | 'gallery' | 'location' | 'cover';
-
-const CATEGORIES = [
-  { slug: 'food', nameEn: 'Bakery, Cakes, Desserts', nameMr: 'बेकरी, केक्स, मिष्टान्न' },
-  { slug: 'salon', nameEn: 'Salon & Beauty', nameMr: 'सलून आणि सौंदर्य' },
-  { slug: 'cleaning', nameEn: 'Home Cleaning', nameMr: 'घर स्वच्छता' },
-  { slug: 'repairs', nameEn: 'Appliance Repairs', nameMr: 'उपकरण दुरुस्ती' }
-];
 
 export const ManageBusinessScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -36,7 +30,8 @@ export const ManageBusinessScreen: React.FC = () => {
 
   // Business Info Form States
   const [bizName, setBizName] = useState('');
-  const [selectedCat, setSelectedCat] = useState(CATEGORIES[0]);
+  const [categories, setCategories] = useState<{ slug: string; nameEn: string; nameMr: string }[]>([]);
+  const [selectedCat, setSelectedCat] = useState<{ slug: string; nameEn: string; nameMr: string } | null>(null);
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
   const [operatingHours, setOperatingHours] = useState('09:00 AM - 09:00 PM');
@@ -54,12 +49,25 @@ export const ManageBusinessScreen: React.FC = () => {
   const loadVendorData = async () => {
     if (!user) return;
     try {
+      let activeCats: { slug: string; nameEn: string; nameMr: string }[] = [];
+      try {
+        const liveCats = await api.getCategories();
+        if (Array.isArray(liveCats) && liveCats.length > 0) {
+          activeCats = liveCats.map((c: any) => ({
+            slug: c.slug || c.id,
+            nameEn: c.nameEn || c.name_en || '',
+            nameMr: c.nameMr || c.name_mr || c.nameEn || '',
+          }));
+          setCategories(activeCats);
+        }
+      } catch (e) {}
+
       const profile = await api.getVendorByUserId(user.id);
       if (profile) {
         setVendor(profile);
         setBizName(isMr ? (profile.businessNameMr || profile.businessNameEn) : profile.businessNameEn);
         
-        const cat = CATEGORIES.find(c => c.slug === profile.categorySlug) || CATEGORIES[0];
+        const cat = activeCats.find(c => c.slug === profile.categorySlug) || activeCats[0] || null;
         setSelectedCat(cat);
         
         setDescription(isMr ? (profile.descriptionMr || profile.descriptionEn) : profile.descriptionEn);
@@ -95,9 +103,9 @@ export const ManageBusinessScreen: React.FC = () => {
         businessNameMr: isMr ? bizName : undefined,
         descriptionEn: description,
         descriptionMr: isMr ? description : undefined,
-        categorySlug: selectedCat.slug,
-        categoryNameEn: selectedCat.nameEn,
-        categoryNameMr: selectedCat.nameMr,
+        categorySlug: selectedCat?.slug,
+        categoryNameEn: selectedCat?.nameEn,
+        categoryNameMr: selectedCat?.nameMr,
         formattedAddress: address,
         phone: contactNumber,
       });
@@ -169,7 +177,7 @@ export const ManageBusinessScreen: React.FC = () => {
     );
   }
 
-  const categoryName = isMr ? selectedCat.nameMr : selectedCat.nameEn;
+  const categoryName = isMr ? (selectedCat?.nameMr || '') : (selectedCat?.nameEn || '');
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -187,7 +195,7 @@ export const ManageBusinessScreen: React.FC = () => {
         <View style={styles.topCard}>
           <Image source={{ uri: coverPhoto || 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500' }} style={styles.topCardImage} />
           <View style={styles.topCardInfo}>
-            <Text style={styles.bizNameText}>{bizName || "Aai's Bakery"}</Text>
+            <Text style={styles.bizNameText}>{bizName || (isMr ? 'व्यवसाय' : 'Business')}</Text>
             <Text style={styles.bizSubText}>{categoryName}</Text>
             <Text style={styles.bizSubText}>{address}</Text>
           </View>
@@ -363,7 +371,7 @@ export const ManageBusinessScreen: React.FC = () => {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{isMr ? 'श्रेणी निवडा' : 'Select Category'}</Text>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <Pressable 
                 key={c.slug} 
                 onPress={() => {
@@ -405,11 +413,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    height: 56,
+    paddingHorizontal: horizontalScale(16),
+    paddingTop: verticalScale(18),
+    paddingBottom: verticalScale(12),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderColor: '#EFE3CC',
   },
@@ -417,10 +426,11 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontFamily: 'Mukta',
-    fontWeight: '600',
-    fontSize: 18,
+    fontFamily: 'Mukta-Bold',
+    fontWeight: '700',
+    fontSize: moderateScale(18),
     color: '#2A2520',
+    lineHeight: moderateScale(23),
   },
   scroll: {
     padding: 16,

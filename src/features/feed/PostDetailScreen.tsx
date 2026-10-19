@@ -72,7 +72,8 @@ export const PostDetailScreen: React.FC = () => {
 
   const loadThreadData = async () => {
     try {
-      const posts = await api.getPosts(activeArea?.id || 'area-bandra');
+      const postsRes = await api.getPosts(activeArea?.id || '');
+      const posts = Array.isArray(postsRes) ? postsRes : (postsRes?.data || []);
       const found = posts.find((p: Post) => p.id === postId);
       if (found) {
         setPost(found);
@@ -270,7 +271,7 @@ export const PostDetailScreen: React.FC = () => {
                       <View style={styles.authorInfo}>
                         <Text style={styles.authorName}>{post.authorName}</Text>
                         <Text style={styles.postTime}>
-                          {`${localityName || 'Bandra West'} · 2h`}
+                          {`${localityName || ''} ${post.createdAt ? '·' : ''}`.trim()}
                         </Text>
                       </View>
                     </View>

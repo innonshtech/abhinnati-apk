@@ -151,7 +151,7 @@ export const BusinessProfileScreen: React.FC = () => {
   const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
-  const { vendorId } = route.params;
+  const vendorId = route.params?.vendorId;
   const { preferredLanguage } = useAuthStore();
   const { setBookingVendor, setBookingService } = useBookingStore();
   const { bottom } = useSafeAreaInsets();
@@ -179,13 +179,47 @@ export const BusinessProfileScreen: React.FC = () => {
     replyTitle: t('marketplace.vendorResponse'),
   }), [t]);
 
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      (navigation as any).navigate('ResidentMain');
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [navigation]);
+
   useEffect(() => {
     const fetchVendorDetails = async () => {
+      if (!vendorId) {
+        setVendor(null);
+        setLoading(false);
+        return;
+      }
       try {
         const data = await api.getVendorById(vendorId);
-        setVendor(data);
+        if (data) {
+          setVendor({
+            ...data,
+            kycStatus: String(data.kycStatus || '').toLowerCase(),
+            services: Array.isArray(data.services) ? data.services : [],
+            reviews: Array.isArray(data.reviews) ? data.reviews : [],
+            reviewsCount: data.reviewsCount ?? data.reviews?.length ?? 0,
+            ratingAvg: Number(data.ratingAvg) || 0,
+          });
+        } else {
+          setVendor(null);
+        }
       } catch (err) {
         console.error(err);
+        setVendor(null);
       } finally {
         setLoading(false);
       }
@@ -229,33 +263,32 @@ export const BusinessProfileScreen: React.FC = () => {
   if (!vendor) {
     return (
       <SafeAreaView style={styles.container}>
+        <View style={{ paddingTop: 16, paddingHorizontal: 20 }}>
+          <Pressable onPress={handleBack} style={{ padding: 8, alignSelf: 'flex-start' }} hitSlop={12}>
+            <CustomChevronLeft size={22} color="#2A2520" strokeWidth={3} />
+          </Pressable>
+        </View>
         <View style={styles.errorContainer}>
-          <Text>{t('marketplace.vendorNotFound')}</Text>
+          <Text style={{ fontSize: 16, fontFamily: theme.typography.fontFamily.semiBold, color: '#2A2520', marginBottom: 12, textAlign: 'center' }}>
+            {t('marketplace.vendorNotFound')}
+          </Text>
+          <Pressable
+            onPress={handleBack}
+            style={{ paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#E58A2B', borderRadius: 8 }}
+          >
+            <Text style={{ color: '#FFFFFF', fontFamily: theme.typography.fontFamily.semiBold, fontSize: 14 }}>
+              {isMr ? 'मागे जा' : 'Go Back'}
+            </Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
-  const isApproved = vendor.kycStatus === 'approved';
+  const isApproved = String(vendor.kycStatus || '').toLowerCase() === 'approved';
   const phone = (vendor as any).phone;
-  const whatsapp = (vendor as any).whatsapp;
-
-  const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      (navigation as any).navigate('ResidentMain');
-    }
-  };
-
-  useEffect(() => {
-    const onBackPress = () => {
-      handleBack();
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => sub.remove();
-  }, [navigation]);
+  const whatsapp = (vendor as any).whatsappNumber || (vendor as any).whatsapp;
+  const services = Array.isArray(vendor.services) ? vendor.services : [];
 
   const photos = [
     { id: '1', color: '#F6E2C4', label: 'Custom Cake' },
@@ -375,28 +408,15 @@ export const BusinessProfileScreen: React.FC = () => {
 
         {/* Services List */}
         <View style={styles.servicesList}>
-          {vendor.services.length > 0 ? (
-            vendor.services.map(service => {
-              const isBookable = !vendor.isFullyBooked && vendor.kycStatus === 'approved';
+          {services.length > 0 ? (
+            services.map(service => {
+              const isBookable = !vendor.isFullyBooked && isApproved;
               const isAdded = selectedServices.some(s => s.id === service.id);
 
-              let serviceName = isMr ? service.name_mr : service.name_en;
-              let priceLabel = '';
-              
-              if (vendor.id === 'vendor-aai') {
-                if (service.id === 'srv-aai-1') {
-                  serviceName = isMr ? 'कस्टम केक ऑर्डर' : 'Custom cake order';
-                  priceLabel = isMr ? '₹६०० पासून' : 'from ₹600';
-                } else if (service.id === 'srv-aai-2') {
-                  serviceName = isMr ? 'ताजा पाव' : 'Daily fresh bread';
-                  priceLabel = isMr ? '₹४० · पिकअप' : '₹40 · pickup';
-                } else if (service.id === 'srv-aai-3') {
-                  serviceName = isMr ? 'सणांचा गोड बॉक्स' : 'Festive sweets box';
-                  priceLabel = isMr ? '₹३५० पासून' : 'from ₹350';
-                }
-              } else {
-                priceLabel = isMr ? `₹${service.price} · ${service.duration_mins} मि` : `₹${service.price} · ${service.duration_mins} mins`;
-              }
+              const serviceName = isMr ? service.name_mr : service.name_en;
+              const priceLabel = isMr
+                ? `₹${service.price} · ${service.duration_mins} मि`
+                : `₹${service.price} · ${service.duration_mins} mins`;
 
               // Overwrite local name with mapped name
               const mappedService = { ...service, name_mr: serviceName, name_en: serviceName };
@@ -528,7 +548,7 @@ export const BusinessProfileScreen: React.FC = () => {
           </View>
         </Pressable>
         <Text style={styles.addressText}>
-          Hill Road, Bandra West, Mumbai
+          {vendor.formattedAddress || vendor.city || ''}
         </Text>
 
       </ScrollView>

@@ -140,9 +140,24 @@ export const OtpVerifyScreen: React.FC = () => {
       const formattedPhone = `+91${phoneNumber}`;
       const res = await api.verifyOtp(sessionId, activeCode, formattedPhone);
       if (res.success) {
-        let userId = (res as any).user?.id || (res as any).userId || `user-${Date.now()}`;
-        let role: 'resident' | 'vendor' = (res.role as any) || (res as any).user?.role || 'resident';
-        let name = (res as any).user?.name || (isMr ? 'अनामिक रहिवासी' : 'Resident Guest');
+        let profile: any = null;
+        try {
+          profile = await api.getProfile();
+        } catch (_) {}
+
+        let userId =
+          profile?.id ||
+          (res as any).user?.id ||
+          (res as any).userId ||
+          `user-${Date.now()}`;
+        let role: 'resident' | 'vendor' =
+          profile?.role || (res.role as any) || (res as any).user?.role || 'resident';
+        let name =
+          profile?.name ||
+          profile?.fullName ||
+          (res as any).user?.name ||
+          (isMr ? 'अनामिक रहिवासी' : 'Resident Guest');
+        const phone = profile?.phone || formattedPhone;
 
         if (USE_MOCK_API && phoneNumber === '9999999999') {
           userId = 'user-patil-owner';
@@ -150,7 +165,10 @@ export const OtpVerifyScreen: React.FC = () => {
           name = isMr ? 'पाटील प्लंबर (व्यावसायिक)' : 'Patil Plumbing (Owner)';
         }
 
-        await login({ id: userId, name, phone: formattedPhone, role }, res.isNewUser);
+        await login(
+          { id: userId, name, phone, role, profileImage: profile?.profileImage },
+          res.isNewUser
+        );
         navigation.replace('NameSelect');
       } else {
         setError(strings.apiError);

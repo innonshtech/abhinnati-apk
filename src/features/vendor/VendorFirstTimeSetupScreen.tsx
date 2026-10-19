@@ -12,6 +12,7 @@ import { theme } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/types';
 import { UploadBottomSheet } from '../../components/vendor/UploadBottomSheet';
 import { KYCFile } from '../../services/fileUploadService';
+import locationService from '../onboarding/services/LocationService';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -32,12 +33,30 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
   const [bizNameMr, setBizNameMr] = useState(vendorProfile?.businessNameMr || '');
   const [bizDescEn, setBizDescEn] = useState(vendorProfile?.descriptionEn || '');
   const [bizDescMr, setBizDescMr] = useState(vendorProfile?.descriptionMr || '');
-  const [categorySlug, setCategorySlug] = useState(vendorProfile?.categorySlug || 'food');
-  const [categoryNameEn, setCategoryNameEn] = useState(vendorProfile?.categoryNameEn || 'Bakery');
-  const [categoryNameMr, setCategoryNameMr] = useState(vendorProfile?.categoryNameMr || 'बेकरी');
+  const [categorySlug, setCategorySlug] = useState(vendorProfile?.categorySlug || '');
+  const [categoryNameEn, setCategoryNameEn] = useState(vendorProfile?.categoryNameEn || '');
+  const [categoryNameMr, setCategoryNameMr] = useState(vendorProfile?.categoryNameMr || '');
   const [whatsappNumber, setWhatsappNumber] = useState(vendorProfile?.whatsappNumber || '');
   const [email, setEmail] = useState(vendorProfile?.email || '');
   const [showCatModal, setShowCatModal] = useState(false);
+  const [categoriesList, setCategoriesList] = useState<{ labelEn: string; labelMr: string; slug: string }[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    api.getCategories().then((data) => {
+      if (isMounted && Array.isArray(data) && data.length > 0) {
+        const mapped = data.map((c: any) => ({
+          labelEn: c.nameEn || c.name_en || '',
+          labelMr: c.nameMr || c.name_mr || c.nameEn || '',
+          slug: c.slug || 'general',
+        }));
+        setCategoriesList(mapped);
+      }
+    }).catch((err) => {
+      console.warn('[VendorFirstTimeSetup] Error loading categories:', err);
+    });
+    return () => { isMounted = false; };
+  }, []);
 
   // Animation values
   const checkScale = useRef(new Animated.Value(0)).current;
@@ -46,13 +65,13 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [location, setLocation] = useState({
-    latitude: 19.0605,
-    longitude: 72.8290,
-    formattedAddress: 'Hill Road, Bandra West, Mumbai, Maharashtra 400050',
-    area: 'Bandra West',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    pincode: '400050',
+    latitude: 0,
+    longitude: 0,
+    formattedAddress: '',
+    area: '',
+    city: '',
+    state: '',
+    pincode: '',
   });
   const [pinOffset, setPinOffset] = useState({ x: 0, y: 0 }); // Mock drag state
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -106,9 +125,9 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
       setBizNameMr(vendorProfile.businessNameMr || '');
       setBizDescEn(vendorProfile.descriptionEn || '');
       setBizDescMr(vendorProfile.descriptionMr || '');
-      setCategorySlug(vendorProfile.categorySlug || 'food');
-      setCategoryNameEn(vendorProfile.categoryNameEn || 'Bakery');
-      setCategoryNameMr(vendorProfile.categoryNameMr || 'बेकरी');
+      setCategorySlug(vendorProfile.categorySlug || '');
+      setCategoryNameEn(vendorProfile.categoryNameEn || '');
+      setCategoryNameMr(vendorProfile.categoryNameMr || '');
       setWhatsappNumber(vendorProfile.whatsappNumber || '');
       setEmail(vendorProfile.email || '');
 
@@ -121,9 +140,9 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
           latitude: vendorProfile.latitude,
           longitude: vendorProfile.longitude,
           formattedAddress: vendorProfile.formattedAddress || '',
-          area: vendorProfile.area?.name || 'Bandra West',
-          city: vendorProfile.city || 'Mumbai',
-          state: vendorProfile.state || 'Maharashtra',
+          area: vendorProfile.area?.name || vendorProfile.formattedAddress || '',
+          city: vendorProfile.city || '',
+          state: vendorProfile.state || '',
           pincode: vendorProfile.pincode || '',
         });
       }
@@ -205,48 +224,54 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
     }
   }, [vendorProfile]);
 
-  // Handle Mock Location Autocomplete lookup
-  const handleSearch = (text: string) => {
+  const handleSearch = async (text: string) => {
     setSearchQuery(text);
     if (!text) {
       setSuggestions([]);
       return;
     }
-    // Simulate address lookups
-    const sampleSuggestions = [
-      { name: "Hill Road, Bandra West", landmark: "Near Elco", pincode: "400050", lat: 19.0605, lon: 72.8290 },
-      { name: "Linking Road, Bandra West", landmark: "Opp National College", pincode: "400050", lat: 19.0620, lon: 72.8340 },
-      { name: "Pali Hill, Bandra West", landmark: "Near Nargis Dutt Road", pincode: "400050", lat: 19.0670, lon: 72.8260 },
-      { name: "Carter Road, Bandra West", landmark: "Near Cafe Coffee Day", pincode: "400052", lat: 19.0720, lon: 72.8210 }
-    ];
-    setSuggestions(sampleSuggestions.filter(item => item.name.toLowerCase().includes(text.toLowerCase()) || item.pincode.includes(text)));
+    const matches = await locationService.searchAreas(text);
+    setSuggestions(matches.map((area) => ({
+      name: area.name_en,
+      landmark: area.city || '',
+      pincode: '',
+      lat: area.latitude,
+      lon: area.longitude,
+      area: area.name_en,
+      city: area.city || '',
+    })));
   };
 
   const selectSuggestion = (item: any) => {
     setLocation({
       latitude: item.lat,
       longitude: item.lon,
-      formattedAddress: `${item.name}, Mumbai, Maharashtra ${item.pincode}`,
-      area: 'Bandra West',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: item.pincode,
+      formattedAddress: [item.name, item.city].filter(Boolean).join(', '),
+      area: item.area || item.name,
+      city: item.city || '',
+      state: '',
+      pincode: item.pincode || '',
     });
     setSearchQuery(item.name);
     setSuggestions([]);
   };
 
-  const useCurrentLocation = () => {
+  const useCurrentLocation = async () => {
+    const matches = await locationService.getOperationalAreas();
+    const first = matches[0];
+    if (!first) {
+      Alert.alert(isMr ? 'परिसर उपलब्ध नाही' : 'No operational areas found');
+      return;
+    }
     setLocation({
-      latitude: 19.0605,
-      longitude: 72.8290,
-      formattedAddress: 'Hill Road, Bandra West, Mumbai, Maharashtra 400050',
-      area: 'Bandra West',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400050',
+      latitude: first.latitude,
+      longitude: first.longitude,
+      formattedAddress: [first.name_en, first.city].filter(Boolean).join(', '),
+      area: first.name_en,
+      city: first.city || '',
+      state: '',
+      pincode: '',
     });
-    Alert.alert('GPS Location Resolved', 'Location set to Bandra West using device GPS coordinates.');
   };
 
   const simulateMapTap = () => {
@@ -257,7 +282,7 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
       ...prev,
       latitude: Number((prev.latitude + deltaLat).toFixed(6)),
       longitude: Number((prev.longitude + deltaLon).toFixed(6)),
-      formattedAddress: 'Hill Road, Bandra West, Mumbai, Maharashtra 400050',
+      formattedAddress: prev.formattedAddress,
     }));
   };
 
@@ -484,7 +509,7 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
       await fetchVendorProfile();
       navigation.reset({
         index: 0,
-        routes: [{ name: 'VendorMain' }],
+        routes: [{ name: 'VendorMain', params: { screen: 'VendorDashboard' } }],
       });
     } catch (err) {
       Alert.alert('Error', 'Failed to complete configuration. Proceeding directly.');
@@ -501,13 +526,13 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
       await fetchVendorProfile();
       navigation.reset({
         index: 0,
-        routes: [{ name: 'VendorMain' }],
+        routes: [{ name: 'VendorMain', params: { screen: 'VendorDashboard' } }],
       });
     } catch {
       Alert.alert('Error', 'Failed to skip setup.');
       navigation.reset({
         index: 0,
-        routes: [{ name: 'VendorMain' }],
+        routes: [{ name: 'VendorMain', params: { screen: 'VendorDashboard' } }],
       });
     } finally {
       setLoading(false);
@@ -547,7 +572,7 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
               <TextInput
                 value={bizNameEn}
                 onChangeText={setBizNameEn}
-                placeholder="e.g. Aai's Bakery"
+                placeholder={isMr ? 'उदा. व्यवसाय नाव' : 'e.g. Business name'}
                 placeholderTextColor="#A89A82"
                 style={styles.formInput}
               />
@@ -631,14 +656,7 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
                   <View style={styles.modalContent}>
                     <Text style={styles.modalTitle}>{isMr ? 'श्रेणी निवडा' : 'Select Category'}</Text>
                     <FlatList
-                      data={[
-                        { labelEn: 'Bakery', labelMr: 'बेकरी', slug: 'food' },
-                        { labelEn: 'Home Cooked Tiffin', labelMr: 'घरगुती डबा', slug: 'food' },
-                        { labelEn: 'Plumbing & Masonry', labelMr: 'प्लंबिंग काम', slug: 'plumbing' },
-                        { labelEn: 'Electrical Works', labelMr: 'इलेक्ट्रिकल काम', slug: 'electric' },
-                        { labelEn: 'Home Cleaning', labelMr: 'घर साफसफाई', slug: 'cleaning' },
-                        { labelEn: 'Legal Advice', labelMr: 'कायदेशीर सल्ला', slug: 'legal' }
-                      ]}
+                      data={categoriesList}
                       keyExtractor={item => item.slug + item.labelEn}
                       renderItem={({ item }) => (
                         <Pressable 
@@ -678,7 +696,7 @@ export const VendorFirstTimeSetupScreen: React.FC = () => {
 
             <View style={styles.summaryCard}>
               <Text style={styles.summaryCardTitle}>
-                ✨ You're now visible in {vendorProfile?.area?.name || 'Bandra West'}.
+                ✨ You're now visible in {vendorProfile?.area?.name || vendorProfile?.formattedAddress || (isMr ? 'तुमचा परिसर' : 'your area')}.
               </Text>
               <Text style={styles.summaryBulletHeader}>Residents can now:</Text>
               <Text style={styles.summaryBullet}>• Discover your business</Text>

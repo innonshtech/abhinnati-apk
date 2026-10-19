@@ -142,20 +142,36 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (userProfile: UserProfile, isNewUserVal = true) => {
-    await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userProfile));
+    let resolved = { ...userProfile };
+    try {
+      const me = await api.getProfile();
+      if (me?.id && !String(me.id).startsWith('user-resident-default')) {
+        resolved = {
+          id: me.id,
+          name: me.name || me.fullName || userProfile.name,
+          phone: me.phone || userProfile.phone,
+          role: me.role === 'vendor' || me.role === 'admin' ? me.role : userProfile.role,
+          profileImage: me.profileImage ?? userProfile.profileImage,
+        };
+      }
+    } catch (e) {
+      console.warn('[login] Failed to sync user profile:', e);
+    }
+
+    await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(resolved));
     await AsyncStorage.setItem(STORAGE_KEYS.NEW_USER, isNewUserVal ? 'true' : 'false');
-    const mode = userProfile.role === 'vendor' ? 'vendor' : 'resident';
+    const mode = resolved.role === 'vendor' ? 'vendor' : 'resident';
     await AsyncStorage.setItem(STORAGE_KEYS.MODE, mode);
 
     let vendorProfile = null;
     try {
-      vendorProfile = await api.getVendorByUserId(userProfile.id);
+      vendorProfile = await api.getVendorByUserId(resolved.id);
     } catch (e) {
       console.warn('[login] Failed to load vendor profile:', e);
     }
 
     set({
-      user: userProfile,
+      user: resolved,
       isAuthenticated: true,
       userMode: mode,
       isNewUser: isNewUserVal,

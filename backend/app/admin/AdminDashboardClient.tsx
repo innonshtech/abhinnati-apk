@@ -42,6 +42,7 @@ import {
   TrendingUp,
   Percent,
   Star,
+  MapPin,
 } from 'lucide-react';
 
 interface Props {
@@ -55,6 +56,7 @@ interface Props {
   initialVendors: any[];
   initialUsers: any[];
   initialCategories: any[];
+  initialAreas?: any[];
   initialPosts: any[];
   initialBookings?: any[];
   stats: {
@@ -73,17 +75,25 @@ export default function AdminDashboardClient({
   initialVendors,
   initialUsers,
   initialCategories,
+  initialAreas = [],
   initialPosts,
   initialBookings = [],
   stats: initialStats,
 }: Props) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'kyc' | 'users' | 'bookings' | 'categories' | 'moderation' | 'analytics' | 'settings'>('kyc');
+  const [activeTab, setActiveTab] = useState<'kyc' | 'users' | 'bookings' | 'categories' | 'areas' | 'moderation' | 'analytics' | 'settings'>('kyc');
 
   // Live state
   const [vendors, setVendors] = useState(initialVendors);
   const [users, setUsers] = useState(initialUsers);
   const [categories, setCategories] = useState(initialCategories);
+  const [areas, setAreas] = useState(initialAreas);
+  const [newAreaNameEn, setNewAreaNameEn] = useState('');
+  const [newAreaNameMr, setNewAreaNameMr] = useState('');
+  const [newAreaCity, setNewAreaCity] = useState('');
+  const [newAreaLat, setNewAreaLat] = useState('');
+  const [newAreaLng, setNewAreaLng] = useState('');
+  const [isCreatingArea, setIsCreatingArea] = useState(false);
   const [posts, setPosts] = useState(initialPosts);
   const [bookings, setBookings] = useState<any[]>(initialBookings);
   const [stats, setStats] = useState(initialStats);
@@ -103,6 +113,7 @@ export default function AdminDashboardClient({
   const [newCatNameMr, setNewCatNameMr] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('Sparkles');
   const [newCatOrder, setNewCatOrder] = useState<string>('0');
+  const [newCatRequiresFssai, setNewCatRequiresFssai] = useState(false);
   const [categoryFormError, setCategoryFormError] = useState('');
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
@@ -277,6 +288,7 @@ export default function AdminDashboardClient({
           nameMr: newCatNameMr.trim(),
           iconName: newCatIcon,
           displayOrder: Number(newCatOrder) || 0,
+          requiresFssai: newCatRequiresFssai,
         }),
       });
 
@@ -296,12 +308,75 @@ export default function AdminDashboardClient({
       setNewCatNameMr('');
       setNewCatIcon('Sparkles');
       setNewCatOrder('0');
+      setNewCatRequiresFssai(false);
       setShowAddCategoryModal(false);
     } catch (err: any) {
       console.error(err);
       setCategoryFormError(err.message || 'Error creating category');
     } finally {
       setIsCreatingCategory(false);
+    }
+  };
+
+  const handleCreateArea = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAreaNameEn.trim()) return;
+    setIsCreatingArea(true);
+    try {
+      const res = await fetch('/api/v1/admin/areas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nameEn: newAreaNameEn.trim(),
+          nameMr: newAreaNameMr.trim() || newAreaNameEn.trim(),
+          city: newAreaCity.trim(),
+          latitude: Number(newAreaLat) || 0,
+          longitude: Number(newAreaLng) || 0,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.area) {
+        setAreas((prev) => [...prev, data.area].sort((a, b) => (a.nameEn || '').localeCompare(b.nameEn || '')));
+        setNewAreaNameEn('');
+        setNewAreaNameMr('');
+        setNewAreaCity('');
+        setNewAreaLat('');
+        setNewAreaLng('');
+      } else {
+        alert(data.error || 'Failed to create area');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to create area');
+    } finally {
+      setIsCreatingArea(false);
+    }
+  };
+
+  const handleToggleArea = async (areaId: string, currentActive: boolean) => {
+    try {
+      const res = await fetch(`/api/v1/admin/areas/${areaId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentActive }),
+      });
+      if (res.ok) {
+        setAreas((prev) => prev.map((area) => (area.id === areaId ? { ...area, isActive: !currentActive } : area)));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteArea = async (areaId: string) => {
+    if (!confirm('Remove this operational area from the app?')) return;
+    try {
+      const res = await fetch(`/api/v1/admin/areas/${areaId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setAreas((prev) => prev.filter((area) => area.id !== areaId));
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -429,6 +504,14 @@ export default function AdminDashboardClient({
             >
               <FolderTree size={19} />
               <span>Categories</span>
+            </div>
+
+            <div
+              className={`${styles.navItem} ${activeTab === 'areas' ? styles.active : ''}`}
+              onClick={() => setActiveTab('areas')}
+            >
+              <MapPin size={19} />
+              <span>Areas</span>
             </div>
 
             <div
@@ -906,6 +989,9 @@ export default function AdminDashboardClient({
                       <span className={`${styles.badge} ${cat.isActive ? styles.approved : styles.pending}`}>
                         {cat.isActive ? 'Active in App' : 'Disabled'}
                       </span>
+                      {cat.requiresFssai && (
+                        <span className={styles.badge} style={{ background: '#FEF3C7', color: '#92400E' }}>FSSAI</span>
+                      )}
                       <button
                         className={styles.btnToggleStatus}
                         onClick={() => handleToggleCategory(cat.id, cat.isActive)}
@@ -916,6 +1002,68 @@ export default function AdminDashboardClient({
                   </div>
                 ))}
               </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'areas' && (
+          <>
+            <header className={styles.header}>
+              <h1 className={styles.title}>Operational Areas</h1>
+              <p className={styles.subtitle}>These localities power area pickers, KYC, search, and the neighbourhood feed.</p>
+            </header>
+
+            <div className={styles.tableContainer} style={{ marginBottom: 24 }}>
+              <h2 className={styles.tableTitle} style={{ marginBottom: 16 }}>Add Area</h2>
+              <form onSubmit={handleCreateArea} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <input className={styles.formInput} placeholder="Name (English)" value={newAreaNameEn} onChange={(e) => setNewAreaNameEn(e.target.value)} required />
+                <input className={styles.formInput} placeholder="Name (Marathi)" value={newAreaNameMr} onChange={(e) => setNewAreaNameMr(e.target.value)} />
+                <input className={styles.formInput} placeholder="City" value={newAreaCity} onChange={(e) => setNewAreaCity(e.target.value)} />
+                <input className={styles.formInput} placeholder="Latitude" value={newAreaLat} onChange={(e) => setNewAreaLat(e.target.value)} />
+                <input className={styles.formInput} placeholder="Longitude" value={newAreaLng} onChange={(e) => setNewAreaLng(e.target.value)} />
+                <button type="submit" className={styles.btnAddPrimary} disabled={isCreatingArea}>
+                  <Plus size={16} />
+                  {isCreatingArea ? 'Saving...' : 'Publish Area'}
+                </button>
+              </form>
+            </div>
+
+            <div className={styles.tableContainer}>
+              <div className={styles.tableHeader}>
+                <h2 className={styles.tableTitle}>Live Areas ({areas.length})</h2>
+              </div>
+              {areas.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <MapPin size={48} className={styles.emptyIcon} />
+                  <h3>No operational areas yet</h3>
+                  <p>Add the first locality so residents and vendors can select it in the app.</p>
+                </div>
+              ) : (
+                areas.map((area) => (
+                  <div key={area.id} className={styles.catRow}>
+                    <div className={styles.catInfo}>
+                      <div className={styles.catIconBox}>
+                        <MapPin size={20} />
+                      </div>
+                      <div>
+                        <div className={styles.catNameEn}>{area.nameEn || area.name}</div>
+                        <div className={styles.catNameMr}>{area.nameMr}{area.city ? ` · ${area.city}` : ''}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span className={`${styles.badge} ${area.isActive ? styles.approved : styles.pending}`}>
+                        {area.isActive ? 'Active in App' : 'Disabled'}
+                      </span>
+                      <button className={styles.btnToggleStatus} onClick={() => handleToggleArea(area.id, area.isActive)}>
+                        {area.isActive ? 'Disable' : 'Enable'}
+                      </button>
+                      <button className={styles.btnDeletePost} onClick={() => handleDeleteArea(area.id)}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </>
         )}
@@ -1327,6 +1475,17 @@ export default function AdminDashboardClient({
                   onChange={(e) => setNewCatOrder(e.target.value)}
                 />
                 <div className={styles.formHelper}>Lower numbers appear first on the mobile app home screen</div>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={newCatRequiresFssai}
+                    onChange={(e) => setNewCatRequiresFssai(e.target.checked)}
+                  />
+                  Require FSSAI document during vendor KYC
+                </label>
               </div>
 
               <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>

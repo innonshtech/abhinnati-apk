@@ -117,8 +117,12 @@ export interface Booking {
   userPhone: string;
   vendorId: string;
   vendorName: string;
+  vendorNameEn?: string;
+  vendorNameMr?: string;
   serviceId: string;
   serviceName: string;
+  serviceNameEn?: string;
+  serviceNameMr?: string;
   price: number;
   bookingDate: string;
   bookingTime: string;
@@ -165,11 +169,10 @@ export const mockAreas: Area[] = [
 
 // 2. Seed Categories
 export const mockCategories: Category[] = [
-  { id: 'cat-plumbing', slug: 'plumbing', name_mr: 'प्लंबर आणि गवंडी', name_en: 'Plumbing & Masonry', iconName: 'Wrench' },
-  { id: 'cat-legal', slug: 'legal', name_mr: 'कायदेशीर सल्ला', name_en: 'Legal Advice', iconName: 'Scale' },
+  { id: 'cat-food', slug: 'food', name_mr: 'बेकरी, केक्स, मिष्टान्न', name_en: 'Bakery, Cakes, Desserts', iconName: 'Utensils' },
+  { id: 'cat-salon', slug: 'salon', name_mr: 'सलून आणि सौंदर्य', name_en: 'Salon & Beauty', iconName: 'Scissors' },
   { id: 'cat-cleaning', slug: 'cleaning', name_mr: 'घर स्वच्छता', name_en: 'Home Cleaning', iconName: 'Sparkles' },
-  { id: 'cat-electric', slug: 'electric', name_mr: 'इलेक्ट्रिक कामे', name_en: 'Electrical Works', iconName: 'Zap' },
-  { id: 'cat-food', slug: 'food', name_mr: 'घरगुती जेवण tiffin', name_en: 'Home Cooked Tiffin', iconName: 'Utensils' },
+  { id: 'cat-repairs', slug: 'repairs', name_mr: 'उपकरण दुरुस्ती', name_en: 'Appliance Repairs', iconName: 'Wrench' },
 ];
 
 // 3. Seed Vendors

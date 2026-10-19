@@ -78,14 +78,7 @@ export class LocationUseCase {
   async reverseGeocode(latitude: number, longitude: number) {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
-      console.warn('[LocationUseCase] GOOGLE_MAPS_API_KEY not configured. Falling back to mock address.');
-      return {
-        formattedAddress: 'Hill Road, Bandra West, Mumbai, Maharashtra 400050',
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        pincode: '400050',
-        area: 'Bandra West',
-      };
+      throw new Error('Reverse geocoding is not configured');
     }
 
     try {
@@ -118,10 +111,10 @@ export class LocationUseCase {
 
         return {
           formattedAddress: result.formatted_address,
-          city: city || 'Mumbai',
-          state: state || 'Maharashtra',
-          pincode: pincode || '400050',
-          area: area || 'Bandra West',
+          city,
+          state,
+          pincode,
+          area: area || city,
         };
       }
       throw new Error(`Geocoding error: ${data.status}`);
@@ -160,7 +153,7 @@ export class LocationUseCase {
       },
     });
 
-    return nearbyLocations.map((loc) => ({
+    return nearbyLocations.map((loc: any) => ({
       businessId: loc.businessId,
       nameMr: loc.business.nameMr,
       nameEn: loc.business.nameEn,

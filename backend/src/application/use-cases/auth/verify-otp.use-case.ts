@@ -78,6 +78,14 @@ export class VerifyOtpUseCase {
       refreshToken: refreshToken.token,
       isNewUser,
       role: user.role,
+      userId: user.id,
+      user: {
+        id: user.id,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+        profileImage: (user as any).profileImage || null,
+      },
     };
   }
 }
