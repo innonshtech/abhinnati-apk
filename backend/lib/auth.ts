@@ -47,7 +47,11 @@ export async function verifyAuth(req: Request) {
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      include: { vendorProfile: true },
+      include: {
+        vendorProfile: {
+          include: { business: true },
+        },
+      },
     });
 
     if (!user || !user.isActive || user.deletedAt) {

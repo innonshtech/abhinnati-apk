@@ -24,7 +24,7 @@ export const HelpSupportScreen: React.FC = () => {
     startChat: isMr ? 'चॅट सुरू करा' : 'Start chat',
     faq1: isMr ? 'मी सेवा कशी बुक करू?' : 'How do I book a service?',
     faq2: isMr ? 'रद्द करणे आणि परतावा' : 'Cancellations & refunds',
-    faq3: isMr ? 'पेमेंट आणि पावत्या' : 'Payments & receipts',
+    faq3: isMr ? 'बुकिंग स्थिती आणि मंजुरी' : 'Booking status and approvals',
     faq4: isMr ? 'विक्रेता पडताळणी' : 'Vendor verification',
     faq5: isMr ? 'समस्या नोंदवा' : 'Report a problem',
   };

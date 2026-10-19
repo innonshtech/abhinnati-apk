@@ -8,8 +8,16 @@ export async function GET() {
       where: { isActive: true },
       orderBy: { displayOrder: 'asc' }
     });
-    return NextResponse.json({ success: true, data: categories });
+    const mapped = categories.map((c: any) => ({
+      ...c,
+      name_en: c.nameEn,
+      name_mr: c.nameMr,
+      requireFssai: c.requiresFssai,
+      requiresFssai: c.requiresFssai,
+    }));
+    return NextResponse.json({ success: true, data: mapped });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Failed to fetch categories' }, { status: 500 });
   }
 }
+

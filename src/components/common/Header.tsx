@@ -22,19 +22,19 @@ export const Header: React.FC<HeaderProps> = ({
   onLanguagePress,
   onNotificationsPress,
   headerBackground = theme.colors.transparent,
-  langButtonBackground = theme.colors.white,
+  langButtonBackground = theme.colors.cream,
 }) => {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.container, { backgroundColor: headerBackground, paddingTop: 66 }]}>
       {/* Locality Dropdown Selector */}
-      <Pressable onPress={onLocalityPress} style={styles.localityFrame}>
+      <Pressable onPress={onLocalityPress} style={styles.localityFrame} hitSlop={8}>
         <Text style={styles.localityName} numberOfLines={1}>
           {localityName}
         </Text>
         <ChevronDown
-          size={18}
-          color={theme.colors.textTertiary}
+          size={14}
+          color="#8A7C66"
           strokeWidth={2.5}
           style={styles.dropdownArrow}
         />
@@ -48,11 +48,11 @@ export const Header: React.FC<HeaderProps> = ({
           backgroundColor={langButtonBackground}
         />
 
-        <Pressable onPress={onNotificationsPress} style={styles.bellBtn}>
+        <Pressable onPress={onNotificationsPress} style={styles.bellBtn} hitSlop={8}>
           <Bell
-            size={16}
-            color={theme.colors.orange}
-            fill={theme.colors.orange}
+            size={18}
+            color="#E58A2B"
+            fill="#E58A2B"
           />
         </Pressable>
       </View>
@@ -66,34 +66,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: 8,
+    paddingHorizontal: 18,
+    paddingBottom: 10,
   },
   localityFrame: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: '100%',
+    height: 30,
   },
   localityName: {
-    fontFamily: theme.typography.fontFamily.semiBold,
+    fontFamily: 'Mukta-SemiBold',
     fontWeight: '600',
-    fontSize: theme.typography.sizes.h2,
-    lineHeight: theme.typography.lineHeights.h2,
-    color: theme.colors.charcoal,
-    maxWidth: 200,
+    fontSize: 18,
+    color: '#2A2520',
+    maxWidth: 220,
   },
   dropdownArrow: {
-    marginLeft: 6,
+    marginLeft: 8,
+    marginTop: 2,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    height: 26,
+    height: 30,
   },
   bellBtn: {
-    width: 20,
-    height: 26,
+    width: 24,
+    height: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },

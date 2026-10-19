@@ -182,10 +182,8 @@ export const SwitchAreaBottomSheet: React.FC<SwitchAreaBottomSheetProps> = ({
         .slice(0, 3);
     }
 
-    // Default list fallback
-    const defaults = ['area-bandra', 'area-bandra-east', 'area-khar', 'area-santacruz', 'area-baner', 'area-ravet'];
     return operationalAreas
-      .filter(a => defaults.includes(a.id) && (selectedArea ? a.id !== selectedArea.id : true))
+      .filter(a => (selectedArea ? a.id !== selectedArea.id : true))
       .slice(0, 3);
   };
 

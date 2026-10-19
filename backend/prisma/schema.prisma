@@ -108,6 +108,9 @@ model Business {
   serviceRadius  String?        @default("5 km")
   emergencyStatus String?
 
+  categoryId     String?
+  category       Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
   // Soft Delete and Audit fields
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -123,17 +126,19 @@ model Business {
   locations      Location[]
 
   @@index([vendorId])
+  @@index([categoryId])
   @@index([deletedAt])
 }
 
 model Category {
-  id           String         @id @default(uuid())
-  slug         String         @unique // e.g. 'plumbing'
-  nameMr       String
-  nameEn       String
-  iconName     String
-  isActive     Boolean        @default(true)
-  displayOrder Int            @default(0)
+  id             String         @id @default(uuid())
+  slug           String         @unique // e.g. 'plumbing'
+  nameMr         String
+  nameEn         String
+  iconName       String
+  isActive       Boolean        @default(true)
+  displayOrder   Int            @default(0)
+  requiresFssai  Boolean        @default(false)
 
   // Soft Delete and Audit fields
   createdAt    DateTime       @default(now())
@@ -145,6 +150,7 @@ model Category {
 
   // Relations
   subCategories SubCategory[]
+  businesses    Business[]
 
   @@index([slug])
   @@index([isActive])
@@ -247,6 +253,44 @@ model Location {
   @@index([businessId])
   @@index([latitude, longitude])
   @@index([deletedAt])
+}
+
+model Area {
+  id          String      @id @default(uuid())
+  name        String
+  nameEn      String
+  nameMr      String
+  slug        String      @unique
+  pincode     String      @default("")
+  city        String      @default("")
+  district    String      @default("")
+  state       String      @default("")
+  country     String      @default("India")
+  latitude    Float
+  longitude   Float
+  radiusKm    Float       @default(5)
+  searchCount Int         @default(0)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  aliases     AreaAlias[]
+
+  @@index([isActive])
+  @@index([slug])
+  @@index([city])
+  @@index([latitude, longitude])
+}
+
+model AreaAlias {
+  id        String   @id @default(uuid())
+  areaId    String
+  area      Area     @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  aliasName String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([areaId])
+  @@index([aliasName])
 }
 
 model DeviceToken {

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, Pressable, Animated, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Animated, useWindowDimensions, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import {
   CustomHomeIcon,
   CustomSearchIcon,
@@ -16,142 +18,138 @@ interface BottomNavigationProps {
   onTabPress: (tab: TabName) => void;
 }
 
-const capsulePositions = [0, 81, 163, 245];
+const TABS: TabName[] = ['Home', 'Explore', 'Bookings', 'Profile'];
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   activeTab,
   onTabPress,
 }) => {
-  const { preferredLanguage } = useAuthStore();
-  const isMr = preferredLanguage === 'mr';
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+
+  // Responsive container width: standard ~361px, responsive across all devices
+  const containerWidth = Math.min(Math.max(windowWidth - 32, 320), 380);
+  const tabWidth = containerWidth / 4;
+  const capsuleMargin = 4;
+  const capsuleWidth = tabWidth - (capsuleMargin * 2);
 
   const tabIndex = activeTab === 'Home' ? 0 : activeTab === 'Explore' ? 1 : activeTab === 'Bookings' ? 2 : 3;
 
   // Animation for the sliding capsule background
-  const slideAnim = useRef(new Animated.Value(capsulePositions[tabIndex])).current;
+  const slideAnim = useRef(new Animated.Value(tabIndex * tabWidth + capsuleMargin)).current;
 
   useEffect(() => {
     Animated.timing(slideAnim, {
-      toValue: capsulePositions[tabIndex],
+      toValue: tabIndex * tabWidth + capsuleMargin,
       duration: 250,
       useNativeDriver: true,
     }).start();
-  }, [tabIndex]);
+  }, [tabIndex, tabWidth, capsuleMargin]);
+
+  const getIcon = (tab: TabName, isFocused: boolean) => {
+    const size = 20;
+    switch (tab) {
+      case 'Home':
+        return <CustomHomeIcon isFocused={isFocused} size={size} />;
+      case 'Explore':
+        return <CustomSearchIcon isFocused={isFocused} size={size} />;
+      case 'Bookings':
+        return <CustomCalendarIcon isFocused={isFocused} size={size} />;
+      case 'Profile':
+        return <CustomProfileIcon isFocused={isFocused} size={size} />;
+    }
+  };
 
   const getLabel = (tab: TabName) => {
     switch (tab) {
       case 'Home':
-        return isMr ? 'माझा परिसर' : 'Home';
+        return t('tabs.home');
       case 'Explore':
-        return isMr ? 'शोधा' : 'Explore';
+        return t('tabs.explore');
       case 'Bookings':
-        return isMr ? 'बुकिंग्स' : 'Bookings';
+        return t('tabs.bookings');
       case 'Profile':
-        return isMr ? 'प्रोफाईल' : 'Profile';
+        return t('tabs.profile');
     }
   };
 
+  const bottomOffset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 18) + 12;
+
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.container}>
+    <View
+      pointerEvents="box-none"
+      style={[
+        styles.tabBarWrapper,
+        {
+          width: containerWidth,
+          bottom: bottomOffset,
+        },
+      ]}
+    >
+      <View style={styles.tabBarContainer}>
         {/* Animated Capsule Background */}
-        <Animated.View style={[styles.activeCapsule, { transform: [{ translateX: slideAnim }] }]} />
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.activeCapsule,
+            {
+              width: capsuleWidth,
+              transform: [{ translateX: slideAnim }],
+            },
+          ]}
+        />
 
-        {/* Tab 1: Home */}
-        <Pressable onPress={() => onTabPress('Home')} style={[styles.tabButton, { left: 5 }]}>
-          <View style={styles.iconContainer}>
-            <CustomHomeIcon isFocused={activeTab === 'Home'} size={20} />
-          </View>
-          <Text
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
-            style={[
-              styles.tabLabel,
-              activeTab === 'Home' ? styles.activeTabLabel : styles.inactiveTabLabel,
-            ]}
-          >
-            {getLabel('Home')}
-          </Text>
-        </Pressable>
+        {/* 4 Tabs Row */}
+        <View style={styles.tabsRow}>
+          {TABS.map((tab) => {
+            const isFocused = activeTab === tab;
 
-        {/* Tab 2: Explore */}
-        <Pressable onPress={() => onTabPress('Explore')} style={[styles.tabButton, { left: 86 }]}>
-          <View style={styles.iconContainer}>
-            <CustomSearchIcon isFocused={activeTab === 'Explore'} size={20} />
-          </View>
-          <Text
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
-            style={[
-              styles.tabLabel,
-              activeTab === 'Explore' ? styles.activeTabLabel : styles.inactiveTabLabel,
-            ]}
-          >
-            {getLabel('Explore')}
-          </Text>
-        </Pressable>
-
-        {/* Tab 3: Bookings */}
-        <Pressable onPress={() => onTabPress('Bookings')} style={[styles.tabButton, { left: 168 }]}>
-          <View style={styles.iconContainer}>
-            <CustomCalendarIcon isFocused={activeTab === 'Bookings'} size={20} />
-          </View>
-          <Text
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
-            style={[
-              styles.tabLabel,
-              activeTab === 'Bookings' ? styles.activeTabLabel : styles.inactiveTabLabel,
-            ]}
-          >
-            {getLabel('Bookings')}
-          </Text>
-        </Pressable>
-
-        {/* Tab 4: Profile */}
-        <Pressable onPress={() => onTabPress('Profile')} style={[styles.tabButton, { left: 250 }]}>
-          <View style={styles.iconContainer}>
-            <CustomProfileIcon isFocused={activeTab === 'Profile'} size={20} />
-          </View>
-          <Text
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
-            style={[
-              styles.tabLabel,
-              activeTab === 'Profile' ? styles.activeTabLabel : styles.inactiveTabLabel,
-            ]}
-          >
-            {getLabel('Profile')}
-          </Text>
-        </Pressable>
+            return (
+              <Pressable
+                key={tab}
+                onPress={() => onTabPress(tab)}
+                style={styles.tabButton}
+                android_ripple={{ color: 'transparent' }}
+              >
+                <View style={styles.iconContainer}>
+                  {getIcon(tab, isFocused)}
+                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.tabLabel,
+                    isFocused ? styles.activeTabLabel : styles.inactiveTabLabel,
+                  ]}
+                >
+                  {getLabel(tab)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
+  tabBarWrapper: {
     position: 'absolute',
-    bottom: 18,
-    width: 361,
     height: 70,
     alignSelf: 'center',
     zIndex: 9999,
   },
-  container: {
-    width: 361,
+  tabBarContainer: {
+    width: '100%',
     height: 70,
-    borderRadius: theme.radius.tabBar,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)', // translucent glass
+    borderRadius: 35,
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(239, 227, 204, 0.5)',     // glass border
-    shadowColor: theme.colors.charcoal,
+    borderColor: '#EFE3CC',
+    shadowColor: '#2A2520',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 15,
@@ -159,18 +157,20 @@ const styles = StyleSheet.create({
   },
   activeCapsule: {
     position: 'absolute',
-    width: 106,
     height: 60,
     top: 5,
-    left: 5,
-    borderRadius: theme.radius.activeTabBg,
-    backgroundColor: 'rgba(208, 208, 208, 0.7)', // active tab pill from Figma
+    borderRadius: 30,
+    backgroundColor: '#D0D0D0',
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
   },
   tabButton: {
-    position: 'absolute',
-    width: 106,
-    height: 60,
-    top: 5,
+    flex: 1,
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'column',
@@ -183,20 +183,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabLabel: {
-    fontSize: theme.typography.sizes.micro,
-    lineHeight: theme.typography.lineHeights.micro,
+    fontSize: 11,
+    fontFamily: 'Mukta-Medium',
+    fontWeight: '500',
+    color: '#6B5F4E',
     textAlign: 'center',
   },
   activeTabLabel: {
-    fontFamily: theme.typography.fontFamily.bold,
+    fontFamily: 'Mukta-Bold',
     fontWeight: '700',
-    color: theme.colors.charcoal,
+    color: '#2A2520',
   },
   inactiveTabLabel: {
-    fontFamily: theme.typography.fontFamily.medium,
+    fontFamily: 'Mukta-Medium',
     fontWeight: '500',
-    color: theme.colors.textSecondary,
+    color: '#6B5F4E',
   },
 });
 
 export default BottomNavigation;
+

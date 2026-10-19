@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
 import { StatusBar, StyleSheet, LogBox } from 'react-native';
-LogBox.ignoreAllLogs();
+LogBox.ignoreLogs([
+  'InteractionManager has been deprecated',
+  'VirtualizedLists should never be nested',
+]);
 import './src/i18n';
 import { NavigationContainer } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,6 +16,7 @@ import { theme } from './src/constants/theme';
 import { useNetworkStore } from './src/store/useNetworkStore';
 import { retryFailedRequests } from './src/api/client';
 import { OfflineScreen } from './src/features/feed/OfflineScreen';
+import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 
 // Initialize TanStack Query Client
 const queryClient = new QueryClient({
@@ -50,17 +54,19 @@ export default function App() {
   }, [setOnline]);
 
   return (
-    <GestureHandlerRootView style={styles.flex}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <NavigationContainer>
-            <StatusBar barStyle="dark-content" backgroundColor={theme.colors.cream} translucent={false} />
-            <RootNavigator />
-            {!isOnline && <OfflineScreen />}
-          </NavigationContainer>
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={styles.flex}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <NavigationContainer>
+              <StatusBar barStyle="dark-content" backgroundColor={theme.colors.cream} translucent={false} />
+              <RootNavigator />
+              {!isOnline && <OfflineScreen />}
+            </NavigationContainer>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 

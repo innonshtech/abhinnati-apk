@@ -10,6 +10,7 @@ export class VendorRepository {
           include: {
             services: true,
             reviews: true,
+            locations: true,
           },
         },
       },

@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, Linki
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Phone, Calendar, Clock, CreditCard, FileText, Check, X, Navigation, Play, CheckCircle } from 'lucide-react-native';
+import { ChevronLeft, Phone, Calendar, Clock, FileText, Check, X, Navigation, Play, CheckCircle } from 'lucide-react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { theme } from '../../constants/theme';
 import { horizontalScale, verticalScale, moderateScale } from '../../hooks/useScale';
@@ -23,7 +23,7 @@ export const BookingActionScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const { bookingId } = route.params;
-  const { preferredLanguage, user } = useAuthStore();
+  const { preferredLanguage } = useAuthStore();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,15 +66,9 @@ export const BookingActionScreen: React.FC = () => {
   const loadBookingDetails = async () => {
     try {
       setLoading(true);
-      if (user) {
-        const v = await api.getVendorByUserId(user.id);
-        if (v) {
-          const all = await api.getBookings(undefined, v.id);
-          const match = all.find((b: any) => b.id === bookingId);
-          if (match) {
-            setBooking(match);
-          }
-        }
+      const match = await api.getBooking(bookingId);
+      if (match) {
+        setBooking(match);
       }
     } catch (err) {
       console.error(err);
@@ -254,7 +248,9 @@ export const BookingActionScreen: React.FC = () => {
         {/* Booking details card */}
         <Card style={styles.infoCard}>
           <Text style={styles.sectionHeader}>{strings.serviceSection}</Text>
-          <Text style={styles.serviceName}>{booking.serviceName}</Text>
+          <Text style={styles.serviceName}>
+            {isMr ? (booking.serviceNameMr || booking.serviceName) : (booking.serviceNameEn || booking.serviceName)}
+          </Text>
           
           <View style={styles.detailRow}>
             <Calendar size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
@@ -277,23 +273,14 @@ export const BookingActionScreen: React.FC = () => {
           ) : null}
         </Card>
 
-        {/* Payment details card */}
-        <Card style={styles.infoCard}>
-          <Text style={styles.sectionHeader}>{strings.paymentSection}</Text>
-          
-          <View style={styles.detailRow}>
-            <CreditCard size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
-            <Text style={styles.detailLabel}>{strings.lblPayment}</Text>
-            <Text style={styles.detailValue}>
-              {booking.paymentMethod === 'cod' ? strings.paymentCod : strings.paymentOnline}
-            </Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.amountLabel}>{strings.lblAmount}</Text>
-            <Text style={styles.amountValue}>₹{booking.price}</Text>
-          </View>
-        </Card>
+        {!!booking.price && (
+          <Card style={styles.infoCard}>
+            <View style={styles.detailRow}>
+              <Text style={styles.amountLabel}>{strings.lblAmount}</Text>
+              <Text style={styles.amountValue}>₹{booking.price}</Text>
+            </View>
+          </Card>
+        )}
       </ScrollView>
 
       {/* Action Footer */}

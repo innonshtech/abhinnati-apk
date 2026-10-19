@@ -31,6 +31,9 @@ export const ProfileDashboardScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const isMr = preferredLanguage === 'mr';
+  const kycStatus = String(vendor?.kycStatus || '').toLowerCase();
+  const isApprovedVendor = kycStatus === 'approved';
+  const hasVendorRecord = !!vendor?.id;
 
   const strings = {
     title: t('profile.title'),
@@ -43,13 +46,13 @@ export const ProfileDashboardScreen: React.FC = () => {
   };
 
   const fetchVendorStatus = async () => {
-    if (!user) return;
     try {
       setLoading(true);
-      const v = await api.getVendorByUserId(user.id);
-      setVendor(v);
+      const v = await api.getVendorByUserId(user?.id);
+      setVendor(v || null);
     } catch (err) {
       console.error(err);
+      setVendor(null);
     } finally {
       setLoading(false);
     }
@@ -128,21 +131,21 @@ export const ProfileDashboardScreen: React.FC = () => {
               )}
             </View>
             
-            <Text style={styles.vendorTitle}>{vendor ? (isMr ? (vendor.businessNameMr || vendor.businessNameEn) : vendor.businessNameEn) : (isMr ? 'व्यवसाय नोंदणी' : 'Business Registration')}</Text>
+            <Text style={styles.vendorTitle}>{hasVendorRecord ? (isMr ? (vendor?.businessNameMr || vendor?.businessNameEn) : vendor?.businessNameEn) : (isMr ? 'व्यवसाय नोंदणी' : 'Business Registration')}</Text>
             
             <View style={[
               styles.approvedBadge,
               {
-                backgroundColor: !vendor ? '#F5ECE0' : vendor.kycStatus === 'approved' ? '#E3F0E8' : '#FBE7CC',
+                backgroundColor: !hasVendorRecord ? '#F5ECE0' : isApprovedVendor ? '#E3F0E8' : '#FBE7CC',
               }
             ]}>
               <Text style={[
                 styles.approvedText,
                 {
-                  color: !vendor ? '#8A7C66' : vendor.kycStatus === 'approved' ? '#2E7D52' : '#9A5A12',
+                  color: !hasVendorRecord ? '#8A7C66' : isApprovedVendor ? '#2E7D52' : '#9A5A12',
                 }
               ]}>
-                {!vendor ? t('profile.notRegistered') : vendor.kycStatus === 'approved' ? t('profile.approved') : t('profile.underReview')}
+                {!hasVendorRecord ? t('profile.notRegistered') : isApprovedVendor ? t('profile.approved') : t('profile.underReview')}
               </Text>
             </View>
             
@@ -150,9 +153,21 @@ export const ProfileDashboardScreen: React.FC = () => {
             
             <Pressable 
               onPress={async () => {
-                if (vendor?.kycStatus === 'approved') {
+                if (isApprovedVendor) {
                   await setUserMode('vendor');
-                } else if (vendor?.kycStatus === 'pending') {
+                  const profile = useAuthStore.getState().vendorProfile;
+                  if (profile?.firstApprovedLogin) {
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'VendorFirstTimeSetup' }],
+                    });
+                  } else {
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'VendorMain', params: { screen: 'VendorDashboard' } }],
+                    });
+                  }
+                } else if (hasVendorRecord) {
                   navigation.navigate('KycStatus');
                 } else {
                   navigation.navigate('KycRegistration');
@@ -161,7 +176,7 @@ export const ProfileDashboardScreen: React.FC = () => {
               style={styles.switchBtn}
             >
               <Text style={styles.switchBtnText}>
-                {!vendor ? strings.btnRegisterVendor : vendor.kycStatus === 'approved' ? strings.btnSwitchMode : t('profile.checkKycStatus')}
+                {!hasVendorRecord ? strings.btnRegisterVendor : isApprovedVendor ? strings.btnSwitchMode : t('profile.checkKycStatus')}
               </Text>
             </Pressable>
           </View>

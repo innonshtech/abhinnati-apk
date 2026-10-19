@@ -487,10 +487,12 @@ export const EmptyFeedScreen: React.FC = () => {
         visible={isAreaSheetVisible}
         onClose={() => setIsAreaSheetVisible(false)}
       />
-      <BottomNavigation
-        activeTab="Home"
-        onTabPress={handleTabPress}
-      />
+      {!navigation.getParent() && (
+        <BottomNavigation
+          activeTab="Home"
+          onTabPress={handleTabPress}
+        />
+      )}
     </SafeAreaView>
   );
 };

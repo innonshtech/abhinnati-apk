@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../api/client';
 import { Vendor } from '../../api/mockData';
 import { LanguageModal } from '../../components/common/LanguageModal';
+import { horizontalScale, verticalScale, moderateScale } from '../../hooks/useScale';
 import Svg, { Path } from 'react-native-svg';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -81,6 +82,7 @@ export const VendorProfileScreen: React.FC = () => {
           </Pressable>
         </View>
       </View>
+      <View style={styles.headerDivider} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
@@ -203,18 +205,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    height: 60,
+    paddingHorizontal: horizontalScale(18),
+    paddingTop: verticalScale(18),
+    paddingBottom: verticalScale(12),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
     backgroundColor: '#FBF6EC',
   },
   headerTitle: {
-    fontFamily: 'Mukta',
-    fontWeight: '600',
-    fontSize: 18,
+    fontFamily: 'Mukta-Bold',
+    fontWeight: '700',
+    fontSize: moderateScale(18),
     color: '#2A2520',
+    lineHeight: moderateScale(23),
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: '#EFE3CC',
   },
   headerRight: {
     flexDirection: 'row',

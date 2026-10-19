@@ -250,3 +250,20 @@ export const CustomBellIcon: React.FC<CustomBellIconProps> = ({
     </Svg>
   );
 };
+
+export interface CustomDashboardIconProps {
+  isFocused: boolean;
+  size?: number;
+}
+
+export const CustomDashboardIcon: React.FC<CustomDashboardIconProps> = ({ isFocused, size = 20 }) => {
+  const color = isFocused ? '#E58A2B' : '#8A7C66';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="8" height="8" rx="2" fill={color} />
+      <Rect x="13" y="3" width="8" height="8" rx="2" fill={color} />
+      <Rect x="3" y="13" width="8" height="8" rx="2" fill={color} />
+      <Rect x="13" y="13" width="8" height="8" rx="2" fill={color} />
+    </Svg>
+  );
+};

@@ -9,13 +9,6 @@ import {
   Bell, 
   Sparkles,
   Search,
-  Home as HomeIcon,
-  Sparkle,
-  Columns,
-  Plus,
-  Car,
-  Store,
-  MoreHorizontal
 } from 'lucide-react-native';
 import Svg, { Rect, LinearGradient as SvgLinearGradient, Stop, Defs } from 'react-native-svg';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -31,8 +24,6 @@ import { RootStackParamList } from '../../navigation/types';
 import { useTranslation } from 'react-i18next';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'ResidentMain'>;
-
-const bakeryBanner = require('../../../assets/bakery_banner.png');
 
 const formatRelativeTime = (dateStr?: string, isMr?: boolean): string => {
   if (!dateStr) return '';
@@ -109,26 +100,11 @@ export const MyAreaFeedScreen: React.FC = () => {
   const [heartAnimPostId, setHeartAnimPostId] = useState<string | null>(null);
   const lastTapMap = useRef<Record<string, number>>({});
 
-  const categories = [
-    { id: 'home', label_en: 'Home', label_mr: 'घर', icon: HomeIcon, slug: 'plumbing', bg: '#FDECD4' },
-    { id: 'events', label_en: 'Events', label_mr: 'कार्यक्रम', icon: Sparkles, slug: 'food', bg: '#FDECD4' },
-    { id: 'beauty', label_en: 'Beauty', label_mr: 'सौंदर्य', icon: Sparkle, slug: 'cleaning', bg: '#FDECD4' },
-    { id: 'tutors', label_en: 'Tutors', label_mr: 'शिक्षक', icon: Columns, slug: 'legal', bg: '#FDECD4' },
-    { id: 'health', label_en: 'Health', label_mr: 'आरोग्य', icon: Plus, slug: 'plumbing', bg: '#FDECD4' },
-    { id: 'auto', label_en: 'Auto', label_mr: 'ऑटो', icon: Car, slug: 'electric', bg: '#FDECD4' },
-    { id: 'stores', label_en: 'Stores', label_mr: 'दुकानें', icon: Store, slug: 'food', bg: '#FDECD4' },
-    { id: 'more', label_en: 'More', label_mr: 'अधिक', icon: MoreHorizontal, slug: 'plumbing', bg: '#FDECD4' },
-  ];
-
   const handleSearchSubmit = () => {
     if (!searchQuery.trim()) return;
     const query = searchQuery.trim();
     setSearchQuery('');
     navigation.navigate('SearchResults', { query });
-  };
-
-  const handleCategoryPress = (slug: string) => {
-    navigation.navigate('SearchResults', { categorySlug: slug });
   };
 
   const loadPosts = async () => {
@@ -170,7 +146,7 @@ export const MyAreaFeedScreen: React.FC = () => {
       let mappedAds: MixedFeedItem[] = [];
       try {
         const resEmpty = await api.getEmptyFeed(areaId);
-        const businessesData = resEmpty?.businesses || [];
+        const businessesData = Array.isArray(resEmpty) ? resEmpty : (resEmpty?.businesses || resEmpty?.data || []);
 
         // Sort newest first
         const sortedBiz = [...businessesData].sort((a: any, b: any) => {
@@ -316,31 +292,13 @@ export const MyAreaFeedScreen: React.FC = () => {
     }
   };
 
-  const handleBookVendor = () => {
-    setBookingVendor('vendor-aai', "Aai's Bakery");
-    setBookingService({
-      id: 'srv-aai-1',
-      name_mr: 'सानुकूल केक ऑर्डर',
-      name_en: 'Custom Cake Order',
-      price: 600,
-      duration_mins: 120,
-      description_mr: 'वाढदिवस, लग्न किंवा इतर कोणत्याही खास प्रसंगासाठी कस्टमाइज्ड केक.',
-      description_en: 'Order customized cakes for birthdays, weddings, or any special occasions.',
-    });
-    navigation.navigate('Booking', { vendorId: 'vendor-aai' });
-  };
-
-  const handleViewVendor = () => {
-    navigation.navigate('BusinessProfile', { vendorId: 'vendor-aai' });
-  };
-
   const renderHeader = useCallback(() => {
     return (
       <View>
         {/* Header Action Bar */}
         <View style={styles.headerBar}>
           <Pressable onPress={() => setIsAreaSheetVisible(true)} style={styles.areaDropdown}>
-            <Text style={styles.areaName}>{localityName || 'Bandra West'}</Text>
+            <Text style={styles.areaName}>{localityName || t('marketplace.defaultLocality')}</Text>
             <ChevronDown size={14} color="#8A7C66" strokeWidth={2.5} style={styles.dropdownArrow} />
           </Pressable>
 
@@ -365,48 +323,6 @@ export const MyAreaFeedScreen: React.FC = () => {
           <Text style={styles.createPostPlaceholder}>{t('feed.createPostPlaceholder')}</Text>
         </Pressable>
 
-        {/* Featured Business Card (Spotlight Card) */}
-        <View style={styles.spotlightCard}>
-          {/* Badge: New in your area */}
-          <View style={styles.spotlightBadge}>
-            <Sparkles
-              size={12}
-              color="#9A5A12"
-              style={styles.spotlightBadgeStar}
-            />
-            <Text style={styles.spotlightBadgeText}>{t('feed.newInYourArea')}</Text>
-          </View>
-
-          {/* SVG linear gradient cover banner */}
-          <Svg width={329} height={118} style={styles.spotlightBanner}>
-            <Defs>
-              <SvgLinearGradient id="spotlightGrad" x1="0%" y1="0%" x2="90%" y2="100%">
-                <Stop offset="0%" stopColor="#F6E2C4" stopOpacity="1" />
-                <Stop offset="71.43%" stopColor="#EFD3AE" stopOpacity="1" />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect width={329} height={118} rx={14} fill="url(#spotlightGrad)" />
-          </Svg>
-
-          {/* Business Name verification line */}
-          <View style={styles.spotlightInfoRow}>
-            <Text style={styles.spotlightTitle}>Aai’s Bakery</Text>
-            <VerifiedBadge size={16} style={styles.spotlightVerifiedBadge} />
-          </View>
-
-          {/* Subtitle */}
-          <Text style={styles.spotlightSubtitle}>Bakery · {t('feed.justJoined')} · 0.4 km</Text>
-
-          {/* Side-by-side Action Buttons */}
-          <View style={styles.spotlightButtonRow}>
-            <Pressable onPress={handleViewVendor} style={styles.viewBtn}>
-              <Text style={styles.viewBtnText}>{t('bookings.viewBtn')}</Text>
-            </Pressable>
-            <Pressable onPress={handleBookVendor} style={styles.bookBtn}>
-              <Text style={styles.bookBtnText}>{t('bookings.bookBtn')}</Text>
-            </Pressable>
-          </View>
-        </View>
       </View>
     );
   }, [localityName, preferredLanguage, navigation, isMr]);
@@ -415,7 +331,7 @@ export const MyAreaFeedScreen: React.FC = () => {
     if (item.feedType === 'ad') {
       const bizName = isMr ? item.businessNameMr : item.businessNameEn;
       const bizCat = isMr ? item.categoryNameMr : item.categoryNameEn;
-      const distance = item.distanceVal?.toFixed(1) || '0.4';
+      const distance = item.distanceVal != null ? item.distanceVal.toFixed(1) : '';
       
       const handleAdBook = () => {
         setBookingVendor(item.id, bizName || '');
@@ -454,7 +370,7 @@ export const MyAreaFeedScreen: React.FC = () => {
           </View>
 
           <Text style={styles.spotlightSubtitle}>
-            {bizCat} · {t('feed.justJoined')} · {distance} km
+            {[bizCat, t('feed.justJoined'), distance ? `${distance} km` : ''].filter(Boolean).join(' · ')}
           </Text>
 
           <View style={styles.spotlightButtonRow}>

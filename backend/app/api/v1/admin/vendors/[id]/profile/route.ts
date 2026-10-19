@@ -73,11 +73,11 @@ export async function GET(
     // 2. Compute performance analytics
     const bookings = vendor.bookings || [];
     const totalRequests = bookings.length;
-    const acceptedCount = bookings.filter((b) => b.status === 'accepted' || b.status === 'completed').length;
-    const declinedCount = bookings.filter((b) => b.status === 'declined').length;
-    const completedCount = bookings.filter((b) => b.status === 'completed').length;
-    const cancelledCount = bookings.filter((b) => b.status === 'cancelled').length;
-    const pendingCount = bookings.filter((b) => b.status === 'pending').length;
+    const acceptedCount = bookings.filter((b: any) => b.status === 'accepted' || b.status === 'completed').length;
+    const declinedCount = bookings.filter((b: any) => b.status === 'declined').length;
+    const completedCount = bookings.filter((b: any) => b.status === 'completed').length;
+    const cancelledCount = bookings.filter((b: any) => b.status === 'cancelled').length;
+    const pendingCount = bookings.filter((b: any) => b.status === 'pending').length;
 
     const totalDecisions = acceptedCount + declinedCount;
     const acceptanceRate =
@@ -93,8 +93,8 @@ export async function GET(
         : 0;
 
     const totalGMV = bookings
-      .filter((b) => b.status === 'completed' || b.paymentStatus === 'paid')
-      .reduce((sum, b) => sum + (Number(b.price) || 0), 0);
+      .filter((b: any) => b.status === 'completed' || b.paymentStatus === 'paid')
+      .reduce((sum: number, b: any) => sum + (Number(b.price) || 0), 0);
 
     const analytics = {
       totalRequests,

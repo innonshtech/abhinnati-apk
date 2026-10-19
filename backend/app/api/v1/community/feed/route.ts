@@ -12,7 +12,7 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' }
     });
 
-    const mappedPosts = posts.map(p => ({
+    const mappedPosts = posts.map((p: any) => ({
       id: p.id,
       authorId: p.authorId,
       authorName: p.authorName,

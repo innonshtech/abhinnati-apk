@@ -63,16 +63,16 @@ export const KycStatusScreen: React.FC = () => {
     try {
       const v = await api.getVendorByUserId(user.id);
       setVendor(v);
+      const kyc = String(v?.kycStatus || '').toLowerCase();
 
-      // If pending, make sure backend database has this vendor queued for admin approval
-      if (v && (v.kycStatus === 'pending' || !v.kycStatus)) {
+      if (v && kyc === 'pending') {
         api.registerVendor({
           userId: user.id,
           businessNameEn: v.businessNameEn || 'My Shop',
           businessNameMr: v.businessNameMr || v.businessNameEn || 'माझे दुकान',
-          categoryNameEn: v.categoryNameEn || 'Retail',
-          categoryNameMr: v.categoryNameMr || 'दुकान',
-          categorySlug: v.categorySlug || 'general',
+          categoryNameEn: v.categoryNameEn || '',
+          categoryNameMr: v.categoryNameMr || '',
+          categorySlug: v.categorySlug || '',
           descriptionEn: v.descriptionEn || '',
           descriptionMr: v.descriptionMr || '',
           phone: user.phone,
@@ -106,7 +106,7 @@ export const KycStatusScreen: React.FC = () => {
     } else {
       navigation.reset({
         index: 0,
-        routes: [{ name: 'VendorMain' }],
+        routes: [{ name: 'VendorMain', params: { screen: 'VendorDashboard' } }],
       });
     }
   };
@@ -119,7 +119,7 @@ export const KycStatusScreen: React.FC = () => {
     );
   }
 
-  const isApproved = vendor?.kycStatus === 'approved';
+  const isApproved = String(vendor?.kycStatus || '').toLowerCase() === 'approved';
 
   if (isApproved) {
     return (

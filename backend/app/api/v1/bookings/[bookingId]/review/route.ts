@@ -81,7 +81,7 @@ export async function POST(
     }
 
     // Create review, recalculate ratings, and log audit record in an atomic transaction
-    const [review] = await prisma.$transaction(async (tx) => {
+    const [review] = await prisma.$transaction(async (tx: any) => {
       const createdReview = await tx.review.create({
         data: {
           businessId: business.id,
@@ -95,7 +95,7 @@ export async function POST(
         where: { businessId: business.id, deletedAt: null },
       });
 
-      const totalRating = allReviews.reduce((sum, r) => sum + r.rating, 0);
+      const totalRating = allReviews.reduce((sum: number, r: any) => sum + r.rating, 0);
       const ratingAvg = Number((totalRating / (allReviews.length || 1)).toFixed(1));
 
       await tx.business.update({

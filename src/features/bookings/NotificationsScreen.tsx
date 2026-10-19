@@ -63,62 +63,6 @@ export const NotificationsScreen: React.FC = () => {
     earlier: isMr ? 'पूर्वी' : 'Earlier',
   };
 
-  const todayNotifications: NotificationItem[] = [
-    {
-      id: 'n1',
-      type: 'confirm',
-      titleEn: 'Booking confirmed',
-      titleMr: 'बुकिंग निश्चित झाली',
-      messageEn: "Aai's Bakery · Custom cake order",
-      messageMr: "आईज् बेकरी · सानुकूल केक ऑर्डर",
-      timeEn: '2h',
-      timeMr: '२ ता.',
-    },
-    {
-      id: 'n2',
-      type: 'new_business',
-      titleEn: 'New business near you',
-      titleMr: 'तुमच्या जवळ नवीन व्यवसाय',
-      messageEn: 'Sai Cycles just joined Bandra West',
-      messageMr: 'साई सायकल नुकतेच वांद्रे पश्चिममध्ये सामील झाले',
-      timeEn: '5h',
-      timeMr: '५ ता.',
-    },
-    {
-      id: 'n3',
-      type: 'reply',
-      titleEn: 'New reply',
-      titleMr: 'नवीन उत्तर',
-      messageEn: 'Mahesh replied to your water post',
-      messageMr: 'महेशने तुमच्या पाण्याच्या पोस्टला उत्तर दिले',
-      timeEn: '6h',
-      timeMr: '६ ता.',
-    },
-  ];
-
-  const earlierNotifications: NotificationItem[] = [
-    {
-      id: 'n4',
-      type: 'reminder',
-      titleEn: 'Booking reminder',
-      titleMr: 'बुकिंगची आठवण',
-      messageEn: 'Custom cake order · tomorrow 12:30',
-      messageMr: 'सानुकूल केक ऑर्डर · उद्या १२:३०',
-      timeEn: '1d',
-      timeMr: '१ दि.',
-    },
-    {
-      id: 'n5',
-      type: 'payment',
-      titleEn: 'Payment received',
-      titleMr: 'पेमेंट प्राप्त झाले',
-      messageEn: '₹600 for custom cake order',
-      messageMr: '₹६०० सानुकूल केक ऑर्डरसाठी',
-      timeEn: '2d',
-      timeMr: '२ दि.',
-    },
-  ];
-
   const renderIcon = (type: NotificationItem['type']) => {
     switch (type) {
       case 'confirm':
@@ -222,8 +166,8 @@ export const NotificationsScreen: React.FC = () => {
     return d < todayDate;
   });
 
-  const displayToday = notifications.length > 0 ? dynamicToday : todayNotifications;
-  const displayEarlier = notifications.length > 0 ? dynamicEarlier : earlierNotifications;
+  const displayToday = dynamicToday;
+  const displayEarlier = dynamicEarlier;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -241,19 +185,26 @@ export const NotificationsScreen: React.FC = () => {
           <View style={{ paddingVertical: 20, alignItems: 'center' }}>
             <ActivityIndicator color={theme.colors.marigold || '#E58A2B'} />
           </View>
+        ) : notifications.length === 0 ? (
+          <Text style={styles.sectionHeader}>{isMr ? 'सूचना नाहीत' : 'No notifications yet'}</Text>
         ) : (
           <>
-            {/* Today Section */}
-            <Text style={styles.sectionHeader}>{strings.today}</Text>
-            <View style={styles.cardGroup}>
-              {displayToday.map(renderCard)}
-            </View>
-
-            {/* Earlier Section */}
-            <Text style={[styles.sectionHeader, styles.marginSection]}>{strings.earlier}</Text>
-            <View style={styles.cardGroup}>
-              {displayEarlier.map(renderCard)}
-            </View>
+            {displayToday.length > 0 && (
+              <>
+                <Text style={styles.sectionHeader}>{strings.today}</Text>
+                <View style={styles.cardGroup}>
+                  {displayToday.map(renderCard)}
+                </View>
+              </>
+            )}
+            {displayEarlier.length > 0 && (
+              <>
+                <Text style={[styles.sectionHeader, styles.marginSection]}>{strings.earlier}</Text>
+                <View style={styles.cardGroup}>
+                  {displayEarlier.map(renderCard)}
+                </View>
+              </>
+            )}
           </>
         )}
       </ScrollView>

@@ -1,3 +1,10 @@
+export type VendorTabParamList = {
+  VendorDashboard: undefined;
+  VendorBookings: undefined;
+  ManageServices: undefined;
+  VendorProfile: undefined;
+};
+
 export type RootStackParamList = {
   // Loading / Splash
   Splash: undefined;
@@ -10,8 +17,8 @@ export type RootStackParamList = {
   Permissions: undefined;
 
   // Main Tab Containers
-  ResidentMain: undefined;
-  VendorMain: undefined;
+  ResidentMain: { screen?: 'MyArea' | 'Explore' | 'BookingsList' | 'Profile' } | undefined;
+  VendorMain: { screen?: keyof VendorTabParamList } | undefined;
   EmptyFeed: undefined;
 
   // Global Resident screens (Accessible from anywhere)
@@ -20,10 +27,9 @@ export type RootStackParamList = {
   SearchResults: { categorySlug?: string; query?: string };
   BusinessProfile: { vendorId: string };
   Booking: { vendorId: string };
-  PaymentGateway: undefined;
-  BookingSuccess: { bookingId: string };
-  BookingFailed: undefined;
-  BookingDetail: { bookingId: string };
+  ConfirmBooking: undefined;
+  BookingSuccess: { bookingId: string; booking?: any };
+  BookingDetail: { bookingId: string; booking?: any };
   WriteReview: { bookingId: string; initialRating?: number; businessName?: string };
   HelpSupport: undefined;
   Alerts: undefined;
@@ -47,11 +53,4 @@ export type ResidentTabParamList = {
   Explore: undefined;
   BookingsList: undefined;
   Profile: undefined;
-};
-
-export type VendorTabParamList = {
-  VendorDashboard: undefined;
-  VendorBookings: undefined;
-  ManageServices: undefined;
-  VendorProfile: undefined;
 };

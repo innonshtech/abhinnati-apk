@@ -18,16 +18,19 @@ async function main() {
   await prisma.user.deleteMany({});
   await prisma.subCategory.deleteMany({});
   await prisma.category.deleteMany({});
+  await prisma.areaAlias.deleteMany({});
+  await prisma.area.deleteMany({});
 
   console.log('Seeding categories and subcategories...');
   const categories = [
-    { slug: 'food', nameMr: 'बेकरी, केक्स, मिष्टान्न', nameEn: 'Bakery, Cakes, Desserts', iconName: 'Utensils' },
-    { slug: 'salon', nameMr: 'सलून आणि सौंदर्य', nameEn: 'Salon & Beauty', iconName: 'Scissors' },
-    { slug: 'cleaning', nameMr: 'घर स्वच्छता', nameEn: 'Home Cleaning', iconName: 'Sparkles' },
-    { slug: 'repairs', nameMr: 'उपकरण दुरुस्ती', nameEn: 'Appliance Repairs', iconName: 'Wrench' }
+    { slug: 'food', nameMr: 'बेकरी, केक्स, मिष्टान्न', nameEn: 'Bakery, Cakes, Desserts', iconName: 'Utensils', requiresFssai: true },
+    { slug: 'salon', nameMr: 'सलून आणि सौंदर्य', nameEn: 'Salon & Beauty', iconName: 'Scissors', requiresFssai: false },
+    { slug: 'cleaning', nameMr: 'घर स्वच्छता', nameEn: 'Home Cleaning', iconName: 'Sparkles', requiresFssai: false },
+    { slug: 'repairs', nameMr: 'उपकरण दुरुस्ती', nameEn: 'Appliance Repairs', iconName: 'Wrench', requiresFssai: false }
   ];
 
-  for (const cat of categories) {
+  const createdCategories: Record<string, string> = {};
+  for (const [index, cat] of categories.entries()) {
     const createdCat = await prisma.category.create({
       data: {
         slug: cat.slug,
@@ -35,9 +38,11 @@ async function main() {
         nameEn: cat.nameEn,
         iconName: cat.iconName,
         isActive: true,
-        displayOrder: 1,
+        displayOrder: index + 1,
+        requiresFssai: cat.requiresFssai,
       }
     });
+    createdCategories[cat.slug] = createdCat.id;
 
     await prisma.subCategory.create({
       data: {
@@ -48,6 +53,37 @@ async function main() {
         isActive: true,
       }
     });
+  }
+
+  console.log('Seeding operational areas...');
+  const areas = [
+    { slug: 'bandra-west', nameEn: 'Bandra West', nameMr: 'वांद्रे पश्चिम', latitude: 19.0596, longitude: 72.8295, radiusKm: 3, city: 'Mumbai', pincode: '400050', state: 'Maharashtra' },
+    { slug: 'bandra-east', nameEn: 'Bandra East', nameMr: 'वांद्रे पूर्व', latitude: 19.0620, longitude: 72.8464, radiusKm: 3, city: 'Mumbai', pincode: '400051', state: 'Maharashtra' },
+    { slug: 'khar', nameEn: 'Khar', nameMr: 'खार', latitude: 19.0700, longitude: 72.8350, radiusKm: 3, city: 'Mumbai', pincode: '400052', state: 'Maharashtra' },
+    { slug: 'santacruz', nameEn: 'Santacruz', nameMr: 'सांताक्रूझ', latitude: 19.0800, longitude: 72.8400, radiusKm: 3, city: 'Mumbai', pincode: '400054', state: 'Maharashtra' },
+    { slug: 'kothrud', nameEn: 'Kothrud', nameMr: 'कोथरूड', latitude: 18.5074, longitude: 73.8077, radiusKm: 5, city: 'Pune', pincode: '411038', state: 'Maharashtra' },
+    { slug: 'deccan-gymkhana', nameEn: 'Deccan Gymkhana', nameMr: 'डेक्कन जिमखाना', latitude: 18.5186, longitude: 73.8417, radiusKm: 4, city: 'Pune', pincode: '411004', state: 'Maharashtra' },
+    { slug: 'baner', nameEn: 'Baner', nameMr: 'बाणेर', latitude: 18.5590, longitude: 73.7868, radiusKm: 4, city: 'Pune', pincode: '411045', state: 'Maharashtra' },
+  ];
+  const createdAreas: Record<string, string> = {};
+  for (const area of areas) {
+    const created = await prisma.area.create({
+      data: {
+        name: area.nameEn,
+        nameEn: area.nameEn,
+        nameMr: area.nameMr,
+        slug: area.slug,
+        pincode: area.pincode,
+        city: area.city,
+        state: area.state,
+        country: 'India',
+        latitude: area.latitude,
+        longitude: area.longitude,
+        radiusKm: area.radiusKm,
+        isActive: true,
+      },
+    });
+    createdAreas[area.slug] = created.id;
   }
 
   console.log('Seeding default administrator user...');
@@ -122,6 +158,7 @@ async function main() {
       whatsappNumber: '9867626610',
       email: 'aai.bakery@abhinnati.com',
       serviceRadius: '5 km',
+      categoryId: createdCategories.food,
     }
   });
 
@@ -134,7 +171,7 @@ async function main() {
       city: 'Mumbai',
       state: 'Maharashtra',
       pincode: '400050',
-      area: 'Bandra West',
+      area: createdAreas['bandra-west'],
     }
   });
 

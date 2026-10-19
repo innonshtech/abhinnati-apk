@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 import { verifyAuth } from '../../../../lib/auth';
+import { bookingDetailInclude, mapBookingForClient } from '../../../../lib/bookings';
+import { createUserNotification } from '../../../../lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,43 +20,18 @@ export async function GET(request: Request) {
     } else if (requestedVendorId) {
       query.vendorId = requestedVendorId;
     } else if (authUser) {
-      // Default to the authenticated user's bookings if no query params provided
       query.userId = authUser.id;
+    } else {
+      return NextResponse.json({ success: true, data: [] });
     }
 
     const bookings = await prisma.booking.findMany({
       where: query,
-      include: {
-        vendor: {
-          include: { business: true }
-        },
-        user: true,
-        service: true
-      },
+      include: bookingDetailInclude,
       orderBy: { createdAt: 'desc' }
     });
 
-    const mappedBookings = bookings.map(b => ({
-      id: b.id,
-      userId: b.userId || '',
-      userName: b.user?.name || 'Customer',
-      userPhone: b.user?.phone || '',
-      vendorId: b.vendorId,
-      vendorName: b.vendor?.business?.nameMr || b.vendor?.business?.nameEn || 'Vendor',
-      serviceId: b.serviceId || '',
-      serviceName: b.service?.nameMr || b.service?.nameEn || 'Custom Service',
-      price: b.price || 0,
-      bookingDate: b.bookingDate,
-      bookingTime: b.bookingTime,
-      notes: b.notes || undefined,
-      status: b.status,
-      paymentStatus: b.paymentStatus,
-      paymentMethod: b.paymentMethod,
-      transactionId: b.transactionId || undefined,
-      createdAt: b.createdAt.toISOString(),
-      cancelUntil: b.cancelUntil?.toISOString(),
-      trackingStatus: b.trackingStatus
-    }));
+    const mappedBookings = bookings.map((b: any) => mapBookingForClient(b));
 
     return NextResponse.json({ success: true, data: mappedBookings });
   } catch (error) {
@@ -74,9 +51,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { vendorId, serviceId, price, bookingDate, bookingTime, notes, paymentMethod } = body;
+    const {
+      vendorId: requestedVendorId,
+      serviceId: requestedServiceId,
+      price,
+      bookingDate,
+      bookingTime,
+      notes,
+    } = body;
 
-    if (!vendorId) {
+    if (!requestedVendorId) {
       return NextResponse.json(
         { success: false, error: 'Vendor ID is required' },
         { status: 400 }
@@ -90,17 +74,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify vendor exists and check vacation status
-    const vendor = await prisma.vendor.findUnique({
-      where: { id: vendorId },
-      include: { business: true }
+    let vendor = await prisma.vendor.findUnique({
+      where: { id: requestedVendorId },
+      include: { business: true, user: true },
     });
+
+    if (!vendor) {
+      const business = await prisma.business.findUnique({
+        where: { id: requestedVendorId },
+        include: { vendor: { include: { business: true } } },
+      });
+      vendor = business?.vendor || null;
+    }
 
     if (!vendor) {
       return NextResponse.json(
         { success: false, error: 'Vendor not found' },
         { status: 404 }
       );
+    }
+
+    const vendorId = vendor.id;
+    let serviceId: string | null = requestedServiceId || null;
+    if (serviceId) {
+      const service = await prisma.vendorService.findUnique({ where: { id: serviceId } });
+      if (!service || service.businessId !== vendor.business?.id) {
+        serviceId = null;
+      }
     }
 
     if (vendor.vacationMode || vendor.business?.vacationMode) {
@@ -199,40 +199,36 @@ export async function POST(request: Request) {
         bookingDate,
         bookingTime,
         notes: notes || null,
-        paymentMethod: paymentMethod || 'cod',
+        paymentMethod: 'none',
+        paymentStatus: 'not_required',
         status: 'pending',
-        paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
         trackingStatus: 'ordered',
-        cancelUntil: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+        cancelUntil: new Date(Date.now() + 5 * 60 * 1000)
       },
-      include: {
-        vendor: { include: { business: true } },
-        user: true,
-        service: true
-      }
+      include: bookingDetailInclude
     });
 
-    const mappedBooking = {
-      id: newBooking.id,
-      userId: newBooking.userId || '',
-      userName: newBooking.user?.name || user.name || 'Customer',
-      userPhone: newBooking.user?.phone || user.phone || '',
-      vendorId: newBooking.vendorId,
-      vendorName: newBooking.vendor?.business?.nameMr || newBooking.vendor?.business?.nameEn || 'Vendor',
-      serviceId: newBooking.serviceId || '',
-      serviceName: newBooking.service?.nameMr || newBooking.service?.nameEn || 'Custom Service',
-      price: newBooking.price || 0,
-      bookingDate: newBooking.bookingDate,
-      bookingTime: newBooking.bookingTime,
-      notes: newBooking.notes || undefined,
-      status: newBooking.status,
-      paymentStatus: newBooking.paymentStatus,
-      paymentMethod: newBooking.paymentMethod,
-      transactionId: newBooking.transactionId || undefined,
-      createdAt: newBooking.createdAt.toISOString(),
-      cancelUntil: newBooking.cancelUntil?.toISOString(),
-      trackingStatus: newBooking.trackingStatus
-    };
+    const mappedBooking = mapBookingForClient(newBooking, user);
+    if (body.serviceName && (!newBooking.service || mappedBooking.serviceName === 'Service')) {
+      mappedBooking.serviceName = body.serviceName;
+      mappedBooking.serviceNameEn = body.serviceName;
+      mappedBooking.serviceNameMr = body.serviceName;
+    }
+    if (body.vendorName && mappedBooking.vendorName === 'Vendor') {
+      mappedBooking.vendorName = body.vendorName;
+      mappedBooking.vendorNameEn = body.vendorName;
+      mappedBooking.vendorNameMr = body.vendorName;
+    }
+
+    const serviceLabel = mappedBooking.serviceName || 'service';
+    await createUserNotification({
+      userId: vendor.userId,
+      titleMr: 'नवीन बुकिंग विनंती',
+      titleEn: 'New booking request',
+      messageMr: `${user.name || 'रहिवासी'} यांनी ${serviceLabel} साठी ${bookingDate} ${bookingTime} ला विनंती केली आहे.`,
+      messageEn: `${user.name || 'A resident'} requested ${serviceLabel} on ${bookingDate} at ${bookingTime}.`,
+      type: 'booking',
+    });
 
     return NextResponse.json({ success: true, data: mappedBooking }, { status: 201 });
   } catch (error: any) {
